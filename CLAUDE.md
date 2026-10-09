@@ -26,10 +26,6 @@ Need a control that isn't in `src/components/ui/`? Add it with `pnpm dlx shadcn@
 
 The CLI puts `shadow-xs`/`shadow-sm` on inputs, textareas and cards. [`DESIGN.md`](DESIGN.md) keeps shadows for things that genuinely float — dialogs, dropdowns, toasts. Strip them.
 
-### No tests in `src/routes/`
-
-Never put test files inside `apps/frontend/src/routes/`. TanStack Router's file-based routing turns every file there into a route, a test included. Keep route files thin: put the components in `src/features/<feature>/components/` and their tests next to them. If a page has logic worth testing, move it into a feature component and render that from the route.
-
 ### The app is already running
 
 Assume the dev servers are up. If something is listening on the app's ports, that is this application: use it. Don't start a second instance, don't restart it, don't run `pnpm dev`.
