@@ -3,12 +3,19 @@ import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
 import { Injectable } from '@nestjs/common';
 
+// Surrounding spaces and a leading @ (as in "@BreadCritic") don't count.
+// Nothing left means no search: the full feed.
+const normalizeSearch = (search?: string): string | undefined => {
+  const term = search?.trim().replace(/^@/, '');
+  return term ? term : undefined;
+};
+
 @Injectable()
 export class QuacksService {
   constructor(private readonly quackRepository: QuackRepository) {}
 
-  async getQuacks(): Promise<Quack[]> {
-    return this.quackRepository.getQuacks();
+  async getQuacks(search?: string): Promise<Quack[]> {
+    return this.quackRepository.getQuacks(normalizeSearch(search));
   }
 
   async createQuack(

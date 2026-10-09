@@ -5,3 +5,6 @@ apps
 
 # Prisma client (generated)
 apps/backend/src/generated/
+
+# Product story, kept exactly as written
+story.md
