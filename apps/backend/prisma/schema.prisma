@@ -74,6 +74,12 @@ model PollVote {
   userId    String
   option    PollOption @relation(fields: [optionId, quackId], references: [id, quackId], onDelete: Cascade)
   optionId  String
+  // Which browser tab sent the vote (random per page load) and that tab's
+  // click counter. A vote from the same tab only overwrites this one when its
+  // counter is higher, so an older click arriving late can't win. Existing
+  // votes get a random tab, so any new vote replaces them.
+  clientId  String     @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  clientSeq Int        @default(0)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @default(now()) @updatedAt
 

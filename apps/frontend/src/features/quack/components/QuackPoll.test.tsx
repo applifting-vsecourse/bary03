@@ -5,11 +5,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import type { QuackPoll as QuackPollData } from "@/features/quack/api/quackSchemas"
 import { QuackPoll } from "@/features/quack/components/QuackPoll"
 
-const { mutate } = vi.hoisted(() => ({ mutate: vi.fn() }))
-const vote = { mutate, isPending: false, isError: false }
+const { voteFor } = vi.hoisted(() => ({ voteFor: vi.fn() }))
+const voting = { vote: voteFor, isError: false }
 
-// The poll is under test, not the network: stub the mutation hook.
-vi.mock("@/features/quack/hooks/useVote", () => ({ useVote: () => vote }))
+// The poll is under test, not the network: stub the voting hook.
+vi.mock("@/features/quack/hooks/useVote", () => ({ useVote: () => voting }))
 
 const lunchPoll = (
   votes: [number, number, number],
@@ -36,9 +36,8 @@ const answer = (name: RegExp) => screen.getByRole("button", { name })
 
 describe("QuackPoll", () => {
   beforeEach(() => {
-    mutate.mockReset()
-    vote.isPending = false
-    vote.isError = false
+    voteFor.mockReset()
+    voting.isError = false
   })
 
   it("shows each answer in order with its votes and whole-number share", () => {
@@ -93,19 +92,21 @@ describe("QuackPoll", () => {
   })
 
   it("votes for the answer I click", async () => {
-    renderPoll(lunchPoll([2, 1, 0]))
+    const poll = lunchPoll([2, 1, 0])
+    renderPoll(poll)
 
     await userEvent.click(answer(/^Salad bar/))
 
-    expect(mutate).toHaveBeenCalledWith("salad")
+    expect(voteFor).toHaveBeenCalledWith("salad", poll)
   })
 
   it("moves my vote to another answer", async () => {
-    renderPoll(lunchPoll([2, 1, 0], "pizza"))
+    const poll = lunchPoll([2, 1, 0], "pizza")
+    renderPoll(poll)
 
     await userEvent.click(answer(/^Ramen/))
 
-    expect(mutate).toHaveBeenCalledWith("ramen")
+    expect(voteFor).toHaveBeenCalledWith("ramen", poll)
   })
 
   it("does nothing when I pick my current answer again", async () => {
@@ -113,20 +114,19 @@ describe("QuackPoll", () => {
 
     await userEvent.click(answer(/^Pizza/))
 
-    expect(mutate).not.toHaveBeenCalled()
+    expect(voteFor).not.toHaveBeenCalled()
   })
 
-  it("waits for a vote to be saved before taking another", () => {
-    vote.isPending = true
-    renderPoll(lunchPoll([2, 1, 0]))
+  it("keeps the answers clickable, so I can change my mind straight away", () => {
+    renderPoll(lunchPoll([2, 1, 0], "pizza"))
 
     for (const button of screen.getAllByRole("button")) {
-      expect(button).toBeDisabled()
+      expect(button).toBeEnabled()
     }
   })
 
   it("says when a vote wasn't saved", () => {
-    vote.isError = true
+    voting.isError = true
     renderPoll(lunchPoll([2, 1, 0]))
 
     expect(screen.getByRole("alert")).toHaveTextContent("Your vote wasn't saved. Try again.")

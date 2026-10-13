@@ -25,6 +25,14 @@ const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
 
 const viewer = { id: 'u1' } as Identity;
 
+const aVote = (
+  optionId: string,
+): { optionId: string; clientId: string; clientSeq: number } => ({
+  optionId,
+  clientId: 'tab-1',
+  clientSeq: 7,
+});
+
 const lunchPoll = (overrides: Partial<QuackPoll> = {}): QuackPoll => ({
   options: [
     { id: 'pizza', text: 'Pizza', votes: 2 },
@@ -127,13 +135,15 @@ describe('QuacksService', () => {
       repository.getPoll.mockResolvedValue(after);
 
       await expect(
-        new QuacksService(repository).vote(viewer, 'q1', 'ramen'),
+        new QuacksService(repository).vote(viewer, 'q1', aVote('ramen')),
       ).resolves.toEqual(after);
       // the voter comes from the session, not from the caller's payload
       expect(repository.setVote).toHaveBeenCalledWith({
         quackId: 'q1',
         userId: 'u1',
         optionId: 'ramen',
+        clientId: 'tab-1',
+        clientSeq: 7,
       });
       expect(repository.getPoll).toHaveBeenCalledWith('q1', 'u1');
     });
@@ -143,7 +153,7 @@ describe('QuacksService', () => {
       repository.getPollOptionIds.mockResolvedValue([]);
 
       await expect(
-        new QuacksService(repository).vote(viewer, 'q1', 'pizza'),
+        new QuacksService(repository).vote(viewer, 'q1', aVote('pizza')),
       ).rejects.toBeInstanceOf(PollNotFoundError);
       expect(repository.setVote).not.toHaveBeenCalled();
     });
@@ -153,7 +163,11 @@ describe('QuacksService', () => {
       repository.getPollOptionIds.mockResolvedValue(['pizza', 'ramen']);
 
       await expect(
-        new QuacksService(repository).vote(viewer, 'q1', 'other-polls-answer'),
+        new QuacksService(repository).vote(
+          viewer,
+          'q1',
+          aVote('other-polls-answer'),
+        ),
       ).rejects.toBeInstanceOf(NotAPollOptionError);
       expect(repository.setVote).not.toHaveBeenCalled();
     });

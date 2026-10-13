@@ -8,7 +8,7 @@ import { QuackList } from "@/features/quack/components/QuackList"
 
 // A list renders polls, and a poll votes through this hook; stub it.
 vi.mock("@/features/quack/hooks/useVote", () => ({
-  useVote: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+  useVote: () => ({ vote: vi.fn(), isError: false }),
 }))
 
 const quack = (overrides: Partial<Quack> = {}): Quack => ({

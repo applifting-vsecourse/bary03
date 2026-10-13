@@ -23,20 +23,17 @@ type QuackPollProps = {
  * not; clicking an answer votes for it or moves my vote to it.
  */
 export function QuackPoll({ quackId, poll, className }: QuackPollProps) {
-  const vote = useVote(quackId)
+  const { vote, isError } = useVote(quackId)
 
   const handleVote = (optionId: string) => {
     // My current answer again changes nothing: a vote can't be taken back.
     if (optionId === poll.myOptionId) return
-    vote.mutate(optionId)
+    vote(optionId, poll)
   }
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      <ul
-        className="flex flex-col gap-2"
-        aria-busy={vote.isPending}
-      >
+      <ul className="flex flex-col gap-2">
         {poll.options.map((option) => {
           const percent = percentOf(option.votes, poll.totalVotes)
           const isMine = option.id === poll.myOptionId
@@ -46,7 +43,6 @@ export function QuackPoll({ quackId, poll, className }: QuackPollProps) {
                 type="button"
                 variant="outline"
                 aria-pressed={isMine}
-                disabled={vote.isPending}
                 onClick={() => handleVote(option.id)}
                 className="h-auto w-full flex-col items-stretch gap-1 px-3 py-2 text-left font-normal whitespace-normal"
               >
@@ -80,7 +76,7 @@ export function QuackPoll({ quackId, poll, className }: QuackPollProps) {
       <p className="text-xs text-muted-foreground">
         {poll.totalVotes === 0 ? "No votes yet" : votesLabel(poll.totalVotes)}
       </p>
-      {vote.isError ? (
+      {isError ? (
         <p
           role="alert"
           className="text-sm text-destructive"

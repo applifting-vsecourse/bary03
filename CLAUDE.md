@@ -38,6 +38,10 @@ The backend returns the same wording as the form, so the API is just as specific
 
 An error must not repeat the field's hint. While a field shows an error, the error replaces the hint.
 
+### Optimistic mutations use `networkMode: "always"`
+
+A mutation that updates the screen before the server answers must set `networkMode: "always"`. By default TanStack Query pauses mutations while the browser is offline: no request is sent and no error is raised. The change looks saved when it isn't, and the user never finds out. With `"always"`, the request fails at once, the rollback runs and the user sees the error. `useVote` (`features/quack/hooks/useVote.ts`) is the pattern to copy.
+
 ### The app is already running
 
 Assume the dev servers are up. If something is listening on the app's ports, that is this application: use it. Don't start a second instance, don't restart it, don't run `pnpm dev`.
