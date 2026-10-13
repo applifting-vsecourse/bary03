@@ -1,8 +1,7 @@
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
-import { useForm, useWatch } from "react-hook-form"
-import { z } from "zod"
+import { ListChecks, Loader2 } from "lucide-react"
+import { useFieldArray, useForm, useWatch } from "react-hook-form"
 
 import { MoodSelect } from "@/components/MoodSelect"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -18,23 +17,14 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
-import { quackMoodSchema, type QuackMood } from "@/features/quack/api/quackSchemas"
+import type { QuackMood } from "@/features/quack/api/quackSchemas"
+import {
+  MAX_LENGTH,
+  quackFormSchema,
+  type QuackFormValues,
+} from "@/features/quack/components/quackFormSchema"
+import { QuackPollFields } from "@/features/quack/components/QuackPollFields"
 import { useAddQuack } from "@/features/quack/hooks/useAddQuack"
-
-// Mirrors the server-side DTO (MaxLength(280)) so the user is told before
-// the request is made — the server still validates independently.
-const MAX_LENGTH = 280
-
-const schema = z.object({
-  text: z
-    .string()
-    .trim()
-    .min(1, "Write something first")
-    .max(MAX_LENGTH, `Keep it under ${MAX_LENGTH} characters`),
-  mood: quackMoodSchema.optional(),
-})
-
-type FormValues = z.infer<typeof schema>
 
 type QuackFormProps = {
   /** The mood the form starts with, and returns to after posting. */
@@ -44,22 +34,49 @@ type QuackFormProps = {
 
 export function QuackForm({ defaultMood, className }: QuackFormProps) {
   const addQuack = useAddQuack()
-  const form = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { text: "", mood: defaultMood },
+  const form = useForm<QuackFormValues>({
+    resolver: zodResolver(quackFormSchema),
+    defaultValues: { text: "", mood: defaultMood, answers: [] },
   })
+  const answers = useFieldArray({ control: form.control, name: "answers" })
+  const addPollButton = useRef<HTMLButtonElement>(null)
 
   // The default can arrive (or change) after the form mounts. Adopt it unless
   // the user has already picked a mood for this post.
   useEffect(() => {
-    form.reset({ text: "", mood: defaultMood }, { keepDirtyValues: true, keepErrors: true })
+    form.reset(
+      { text: "", mood: defaultMood, answers: [] },
+      { keepDirtyValues: true, keepErrors: true },
+    )
   }, [defaultMood, form])
 
   const text = useWatch({ control: form.control, name: "text" })
   const length = text?.length ?? 0
+  const hasPoll = answers.fields.length > 0
 
-  const handleSubmit = (values: FormValues) => {
-    addQuack.mutate({ text: values.text, mood: values.mood }, { onSuccess: () => form.reset() })
+  // After a failed submit, re-check every answer when one changes or goes:
+  // fixing answer 1 can clear "same as answer 1" on answer 3.
+  const recheckAnswers = () => {
+    if (form.formState.isSubmitted) void form.trigger("answers")
+  }
+
+  const handleRemovePoll = () => {
+    answers.replace([])
+    // The fields (and the focus with them) are gone; put focus somewhere useful.
+    requestAnimationFrame(() => addPollButton.current?.focus())
+  }
+
+  const handleSubmit = (values: QuackFormValues) => {
+    addQuack.mutate(
+      {
+        text: values.text,
+        mood: values.mood,
+        poll: values.answers.length
+          ? { answers: values.answers.map((answer) => answer.value) }
+          : undefined,
+      },
+      { onSuccess: () => form.reset() },
+    )
   }
 
   return (
@@ -112,10 +129,42 @@ export function QuackForm({ defaultMood, className }: QuackFormProps) {
           />
         </div>
 
-        <div className="flex items-center justify-end gap-3">
+        {hasPoll ? (
+          <QuackPollFields
+            control={form.control}
+            fields={answers.fields}
+            onAddAnswer={() => {
+              answers.append({ value: "" })
+              recheckAnswers()
+            }}
+            onRemoveAnswer={(index) => {
+              answers.remove(index)
+              recheckAnswers()
+            }}
+            onRemovePoll={handleRemovePoll}
+            onAnswerChange={recheckAnswers}
+            isDisabled={addQuack.isPending}
+          />
+        ) : null}
+
+        <div className="flex items-center gap-3">
+          {hasPoll ? null : (
+            <Button
+              ref={addPollButton}
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={addQuack.isPending}
+              // Two empty answers to start with; the cursor goes to the first.
+              onClick={() => answers.append([{ value: "" }, { value: "" }], { focusIndex: 0 })}
+            >
+              <ListChecks />
+              Add a poll
+            </Button>
+          )}
           <span
             className={cn(
-              "text-sm",
+              "ml-auto text-sm",
               length > MAX_LENGTH ? "text-destructive" : "text-muted-foreground",
             )}
           >

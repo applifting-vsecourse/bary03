@@ -114,16 +114,28 @@ export class QuackRepository {
     return quacks.map(mapPrismaQuackToDomain);
   }
 
+  /**
+   * Creates the quack and, when `pollAnswers` isn't empty, its answers in the
+   * given order. Prisma's nested create writes both in one transaction, so a
+   * poll never exists without its answers.
+   */
   async createQuack(createQuackData: {
     text: string;
     mood: QuackMood | null;
     userId: string;
+    pollAnswers: string[];
   }): Promise<Quack> {
     const quack = await this.prisma.quack.create({
       data: {
         text: createQuackData.text,
         mood: createQuackData.mood,
         user: { connect: { id: createQuackData.userId } },
+        pollOptions: {
+          create: createQuackData.pollAnswers.map((text, position) => ({
+            text,
+            position,
+          })),
+        },
       },
       include: { user: true, ...pollInclude(createQuackData.userId) },
     });
