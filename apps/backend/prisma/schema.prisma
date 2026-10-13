@@ -40,8 +40,47 @@ model Quack {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @default(now()) @updatedAt
 
+  // A quack is a poll exactly when it has answers.
+  pollOptions PollOption[]
+  pollVotes   PollVote[]
+
   @@index([userId])
   @@map("quack")
+}
+
+model PollOption {
+  id        String     @id @default(cuid())
+  quack     Quack      @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId   String
+  // the order the author typed the answers in, 0–3
+  position  Int        @db.SmallInt
+  text      String     @db.VarChar(50)
+  createdAt DateTime   @default(now())
+  votes     PollVote[]
+
+  @@unique([quackId, position])
+  // Redundant as a key (id is unique already): it lets poll_vote reference an
+  // answer together with its poll, so a vote can't point at another poll's answer.
+  @@unique([id, quackId])
+  @@map("poll_option")
+}
+
+// One row per person per poll: the primary key is the one-vote guarantee.
+// Counts are always computed from these rows, never stored.
+model PollVote {
+  quack     Quack      @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId   String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  option    PollOption @relation(fields: [optionId, quackId], references: [id, quackId], onDelete: Cascade)
+  optionId  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+
+  @@id([quackId, userId])
+  @@index([optionId])
+  @@index([userId])
+  @@map("poll_vote")
 }
 
 model Session {
@@ -93,21 +132,22 @@ model Verification {
 }
 
 model User {
-  id              String    @id
-  name            String
-  email           String
-  emailVerified   Boolean
-  image           String?   @db.Text
-  createdAt       DateTime
-  updatedAt       DateTime
-  sessions        Session[]
-  accounts        Account[]
-  quacks          Quack[]
-  role            UserRole  @default(user)
+  id            String     @id
+  name          String
+  email         String
+  emailVerified Boolean
+  image         String?    @db.Text
+  createdAt     DateTime
+  updatedAt     DateTime
+  sessions      Session[]
+  accounts      Account[]
+  quacks        Quack[]
+  pollVotes     PollVote[]
+  role          UserRole   @default(user)
 
-  username        String? @db.VarChar(50)
-  displayUsername String? @db.VarChar(50)
-  bio             String? @db.VarChar(160)
+  username        String?    @db.VarChar(50)
+  displayUsername String?    @db.VarChar(50)
+  bio             String?    @db.VarChar(160)
   defaultMood     QuackMood?
 
   @@unique([email])

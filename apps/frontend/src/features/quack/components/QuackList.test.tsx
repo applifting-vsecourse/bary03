@@ -13,6 +13,7 @@ const quack = (overrides: Partial<Quack> = {}): Quack => ({
   userId: "u1",
   createdAt: new Date("2026-01-01T12:00:00Z"),
   user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
+  poll: null,
   ...overrides,
 })
 
@@ -37,6 +38,35 @@ describe("QuackList", () => {
     for (const label of ["Happy", "Sad", "Angry", "Silly"]) {
       expect(screen.queryByText(label)).not.toBeInTheDocument()
     }
+  })
+
+  it("shows a poll under the question", () => {
+    render(
+      <QuackList
+        quacks={[
+          quack({
+            text: "Where do we go for lunch?",
+            poll: {
+              options: [
+                { id: "o1", text: "Pizza", votes: 2 },
+                { id: "o2", text: "Ramen", votes: 1 },
+              ],
+              totalVotes: 3,
+            },
+          }),
+        ]}
+      />,
+    )
+
+    expect(screen.getByText("Where do we go for lunch?")).toBeInTheDocument()
+    expect(screen.getByText("Pizza")).toBeInTheDocument()
+    expect(screen.getByText("3 votes")).toBeInTheDocument()
+  })
+
+  it("shows no poll for an ordinary quack", () => {
+    render(<QuackList quacks={[quack()]} />)
+
+    expect(screen.queryByText(/votes?$/)).not.toBeInTheDocument()
   })
 
   it("says the feed is empty when there are no quacks", () => {

@@ -12,6 +12,28 @@ class QuackUserDto {
   username!: string;
 }
 
+class PollOptionResponseDto {
+  @ApiProperty()
+  id!: string;
+
+  @ApiProperty()
+  text!: string;
+
+  @ApiProperty({ description: 'How many people picked this answer' })
+  votes!: number;
+}
+
+class PollResponseDto {
+  @ApiProperty({
+    type: [PollOptionResponseDto],
+    description: 'In the order the author typed them',
+  })
+  options!: PollOptionResponseDto[];
+
+  @ApiProperty({ description: "Sum of the answers' votes" })
+  totalVotes!: number;
+}
+
 export class QuackResponseDto {
   @ApiProperty()
   id!: string;
@@ -31,6 +53,14 @@ export class QuackResponseDto {
   @ApiProperty({ type: QuackUserDto })
   user!: QuackUserDto;
 
+  @ApiProperty({
+    type: PollResponseDto,
+    nullable: true,
+    description:
+      'The answers and their votes; null when the quack is not a poll',
+  })
+  poll!: PollResponseDto | null;
+
   static fromDomain(quack: Quack): QuackResponseDto {
     if (!quack.user) {
       throw new Error(
@@ -48,6 +78,7 @@ export class QuackResponseDto {
         name: quack.user.name,
         username: quack.user.username,
       },
+      poll: quack.poll,
     };
   }
 }

@@ -188,7 +188,7 @@ Each slice ends with something to check in the browser and adds unit tests in th
   - The seed poll shows Pizza 2 (67%), Ramen 1 (33%), Salad bar 0 (0%) and "3 votes".
   - Other posts look unchanged.
   - Search `lunch` finds the poll and `Ramen` doesn't (#10–#13, #15, #29).
-- **Before checking:** reset the local database with `pnpm backend db:reset`, because the seed only runs on an empty database. This also deletes accounts and posts made by hand.
+- **Before checking:** run `pnpm backend db:reset`, then `pnpm backend seed`. The reset only empties the database and applies the migrations; it doesn't seed. The seed only runs on an empty database. This deletes accounts and posts made by hand.
 
 ### 2. Vote and change my vote
 
