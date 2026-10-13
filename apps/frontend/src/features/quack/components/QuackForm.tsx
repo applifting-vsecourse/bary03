@@ -1,8 +1,10 @@
+import { useEffect } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
 import { z } from "zod"
 
+import { MoodSelect } from "@/components/MoodSelect"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,26 +15,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
-import { quackMoodSchema } from "@/features/quack/api/quackSchemas"
-import { quackMoods } from "@/features/quack/components/quackMoods"
+import { quackMoodSchema, type QuackMood } from "@/features/quack/api/quackSchemas"
 import { useAddQuack } from "@/features/quack/hooks/useAddQuack"
 
 // Mirrors the server-side DTO (MaxLength(280)) so the user is told before
 // the request is made — the server still validates independently.
 const MAX_LENGTH = 280
-
-// Radix Select can't hold an empty value, so "no mood" gets its own sentinel.
-const NO_MOOD = "none"
 
 const schema = z.object({
   text: z
@@ -45,14 +36,24 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-type QuackFormProps = { className?: string }
+type QuackFormProps = {
+  /** The mood the form starts with, and returns to after posting. */
+  defaultMood?: QuackMood
+  className?: string
+}
 
-export function QuackForm({ className }: QuackFormProps) {
+export function QuackForm({ defaultMood, className }: QuackFormProps) {
   const addQuack = useAddQuack()
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { text: "", mood: undefined },
+    defaultValues: { text: "", mood: defaultMood },
   })
+
+  // The default can arrive (or change) after the form mounts. Adopt it unless
+  // the user has already picked a mood for this post.
+  useEffect(() => {
+    form.reset({ text: "", mood: defaultMood }, { keepDirtyValues: true, keepErrors: true })
+  }, [defaultMood, form])
 
   const text = useWatch({ control: form.control, name: "text" })
   const length = text?.length ?? 0
@@ -100,29 +101,11 @@ export function QuackForm({ className }: QuackFormProps) {
             render={({ field }) => (
               <FormItem className="sm:w-40">
                 <FormLabel>Mood</FormLabel>
-                <Select
-                  value={field.value ?? NO_MOOD}
-                  onValueChange={(value) => field.onChange(value === NO_MOOD ? undefined : value)}
-                  disabled={addQuack.isPending}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value={NO_MOOD}>No mood</SelectItem>
-                    {quackMoodSchema.options.map((mood) => (
-                      <SelectItem
-                        key={mood}
-                        value={mood}
-                      >
-                        <span aria-hidden="true">{quackMoods[mood].emoji}</span>
-                        {quackMoods[mood].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <MoodSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  isDisabled={addQuack.isPending}
+                />
                 <FormMessage />
               </FormItem>
             )}

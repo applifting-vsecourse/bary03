@@ -1,8 +1,10 @@
 import { z } from "zod"
 
+import { moodSchema } from "@/lib/moods"
+
 // Per the Applifting frontend playbook: validate every server payload with zod
 // and infer types from the schema rather than auto-generating them.
-export const quackMoodSchema = z.enum(["happy", "sad", "angry", "silly"])
+export const quackMoodSchema = moodSchema
 
 export const quackUserSchema = z.object({
   id: z.string(),

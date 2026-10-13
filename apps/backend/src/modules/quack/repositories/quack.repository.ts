@@ -19,7 +19,8 @@ const mapPrismaQuackToDomain = (
     ? {
         id: quack.user.id,
         name: quack.user.name,
-        username: quack.user.username ?? '',
+        // the spelling the user chose; `username` is BetterAuth's lowercased copy
+        username: quack.user.displayUsername ?? quack.user.username ?? '',
       }
     : undefined,
 });
