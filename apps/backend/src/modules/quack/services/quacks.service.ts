@@ -26,11 +26,12 @@ export class QuacksService {
 
   async createQuack(
     user: Identity,
-    quackData: { text: string; mood?: QuackMood },
+    quackData: { text: string; mood?: QuackMood; pollAnswers?: string[] },
   ): Promise<Quack> {
     return this.quackRepository.createQuack({
       text: quackData.text,
       mood: quackData.mood ?? null,
+      pollAnswers: quackData.pollAnswers ?? [],
       // the author is taken from the session, never from the request body
       userId: user.id,
     });
