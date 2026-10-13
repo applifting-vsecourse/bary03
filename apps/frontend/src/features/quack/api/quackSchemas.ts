@@ -16,6 +16,8 @@ export const quackPollSchema = z.object({
   // in the order the author typed them
   options: z.array(z.object({ id: z.string(), text: z.string(), votes: z.number() })),
   totalVotes: z.number(),
+  // the signed-in user's answer; null until they vote
+  myOptionId: z.string().nullable(),
 })
 
 export const quackSchema = z.object({

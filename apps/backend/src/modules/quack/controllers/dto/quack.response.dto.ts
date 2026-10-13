@@ -23,7 +23,7 @@ class PollOptionResponseDto {
   votes!: number;
 }
 
-class PollResponseDto {
+export class PollResponseDto {
   @ApiProperty({
     type: [PollOptionResponseDto],
     description: 'In the order the author typed them',
@@ -32,6 +32,14 @@ class PollResponseDto {
 
   @ApiProperty({ description: "Sum of the answers' votes" })
   totalVotes!: number;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The answer the signed-in user picked; null if they have not voted',
+  })
+  myOptionId!: string | null;
 }
 
 export class QuackResponseDto {

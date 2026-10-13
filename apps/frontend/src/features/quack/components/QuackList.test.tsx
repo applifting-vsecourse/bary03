@@ -6,6 +6,11 @@ import { describe, expect, it, vi } from "vitest"
 import type { Quack } from "@/features/quack/api/quackSchemas"
 import { QuackList } from "@/features/quack/components/QuackList"
 
+// A list renders polls, and a poll votes through this hook; stub it.
+vi.mock("@/features/quack/hooks/useVote", () => ({
+  useVote: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+}))
+
 const quack = (overrides: Partial<Quack> = {}): Quack => ({
   id: "q1",
   text: "quack quack",
@@ -52,6 +57,7 @@ describe("QuackList", () => {
                 { id: "o2", text: "Ramen", votes: 1 },
               ],
               totalVotes: 3,
+              myOptionId: null,
             },
           }),
         ]}
