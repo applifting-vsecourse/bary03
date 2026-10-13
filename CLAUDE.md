@@ -30,6 +30,14 @@ The CLI puts `shadow-xs`/`shadow-sm` on inputs, textareas and cards. [`DESIGN.md
 
 Never put test files inside `apps/frontend/src/routes/`. TanStack Router's file-based routing turns every file there into a route, a test included. Keep route files thin: put the components in `src/features/<feature>/components/` and their tests next to them. If a page has logic worth testing, move it into a feature component and render that from the route.
 
+### Validation errors say exactly what is wrong
+
+One message per way a value can fail, never one generic message for the whole rule: "Username is too short — use at least 3 characters.", "Username is too long — use at most 30 characters (you have 34).", ""#" isn't allowed. Use only letters, numbers, dots and underscores." Name the offending character, give the real count, say how to fix it.
+
+The backend returns the same wording as the form, so the API is just as specific. The settings rules (`settings-rules.ts` in the backend, `settingsRules.ts` in the frontend) are the pattern to copy.
+
+An error must not repeat the field's hint. While a field shows an error, the error replaces the hint.
+
 ### The app is already running
 
 Assume the dev servers are up. If something is listening on the app's ports, that is this application: use it. Don't start a second instance, don't restart it, don't run `pnpm dev`.
