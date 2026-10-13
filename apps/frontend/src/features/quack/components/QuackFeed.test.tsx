@@ -17,6 +17,7 @@ const quack = (id: string, text: string) => ({
   userId: "u1",
   createdAt: "2026-01-01T12:00:00Z",
   user: { id: "u1", name: "The Bread Critic", username: "BreadCritic" },
+  poll: null,
 })
 
 const respondWith = (body: unknown) => ({ json: () => Promise.resolve(body) })

@@ -187,4 +187,26 @@ Please stop tagging me.`,
       createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
     });
   }
+
+  console.log('Creating example poll');
+
+  // The poll the polls story's examples use: Pizza 2, Ramen 1, Salad bar 0.
+  const lunchPoll = await createQuack(prisma, {
+    text: 'Where do we go for lunch?',
+    userId: caffeinatedDuck.id,
+    createdAt: new Date(now - 10 * MINUTE_IN_MS),
+    pollAnswers: ['Pizza', 'Ramen', 'Salad bar'],
+  });
+  const [pizza, ramen] = lunchPoll.pollOptions;
+  await prisma.pollVote.createMany({
+    data: [
+      { voter: deepDuckThoughts, option: pizza },
+      { voter: breadCritic, option: pizza },
+      { voter: migrationSeason, option: ramen },
+    ].map(({ voter, option }) => ({
+      quackId: lunchPoll.id,
+      userId: voter.id,
+      optionId: option.id,
+    })),
+  });
 };

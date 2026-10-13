@@ -1,6 +1,11 @@
 // Example unit test — the pattern to copy for your own services.
 // The repository is mocked, so the test exercises the service in isolation.
-import { Quack } from '@/modules/quack/domain/quack';
+import {
+  NotAPollOptionError,
+  PollNotFoundError,
+  Quack,
+  QuackPoll,
+} from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
 import { mock } from 'jest-mock-extended';
@@ -14,6 +19,19 @@ const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
   createdAt: new Date('2026-01-01T12:00:00Z'),
   updatedAt: new Date('2026-01-01T12:00:00Z'),
   user: { id: 'u1', name: 'Caffeinated Duck', username: 'CaffeinatedDuck' },
+  poll: null,
+  ...overrides,
+});
+
+const viewer = { id: 'u1' } as Identity;
+
+const lunchPoll = (overrides: Partial<QuackPoll> = {}): QuackPoll => ({
+  options: [
+    { id: 'pizza', text: 'Pizza', votes: 2 },
+    { id: 'ramen', text: 'Ramen', votes: 1 },
+  ],
+  totalVotes: 3,
+  myOptionId: null,
   ...overrides,
 });
 
@@ -25,8 +43,9 @@ describe('QuacksService', () => {
 
     const service = new QuacksService(repository);
 
-    await expect(service.getQuacks()).resolves.toEqual(quacks);
-    expect(repository.getQuacks).toHaveBeenCalledTimes(1);
+    await expect(service.getQuacks(viewer)).resolves.toEqual(quacks);
+    // polls are read as the signed-in user sees them (their own answer)
+    expect(repository.getQuacks).toHaveBeenCalledWith('u1', undefined);
   });
 
   it.each([
@@ -39,9 +58,9 @@ describe('QuacksService', () => {
     const repository = mock<QuackRepository>();
     repository.getQuacks.mockResolvedValue([]);
 
-    await new QuacksService(repository).getQuacks(search);
+    await new QuacksService(repository).getQuacks(viewer, search);
 
-    expect(repository.getQuacks).toHaveBeenCalledWith(expected);
+    expect(repository.getQuacks).toHaveBeenCalledWith('u1', expected);
   });
 
   it.each([undefined, '', '   ', '@'])(
@@ -50,9 +69,9 @@ describe('QuacksService', () => {
       const repository = mock<QuackRepository>();
       repository.getQuacks.mockResolvedValue([]);
 
-      await new QuacksService(repository).getQuacks(search);
+      await new QuacksService(repository).getQuacks(viewer, search);
 
-      expect(repository.getQuacks).toHaveBeenCalledWith(undefined);
+      expect(repository.getQuacks).toHaveBeenCalledWith('u1', undefined);
     },
   );
 
@@ -90,6 +109,53 @@ describe('QuacksService', () => {
       text: 'yay',
       mood: 'happy',
       userId: 'u1',
+    });
+  });
+
+  describe('vote', () => {
+    it("sets the signed-in user's vote and returns the poll after it", async () => {
+      const after = lunchPoll({
+        options: [
+          { id: 'pizza', text: 'Pizza', votes: 2 },
+          { id: 'ramen', text: 'Ramen', votes: 2 },
+        ],
+        totalVotes: 4,
+        myOptionId: 'ramen',
+      });
+      const repository = mock<QuackRepository>();
+      repository.getPollOptionIds.mockResolvedValue(['pizza', 'ramen']);
+      repository.getPoll.mockResolvedValue(after);
+
+      await expect(
+        new QuacksService(repository).vote(viewer, 'q1', 'ramen'),
+      ).resolves.toEqual(after);
+      // the voter comes from the session, not from the caller's payload
+      expect(repository.setVote).toHaveBeenCalledWith({
+        quackId: 'q1',
+        userId: 'u1',
+        optionId: 'ramen',
+      });
+      expect(repository.getPoll).toHaveBeenCalledWith('q1', 'u1');
+    });
+
+    it('refuses a quack that is not a poll', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getPollOptionIds.mockResolvedValue([]);
+
+      await expect(
+        new QuacksService(repository).vote(viewer, 'q1', 'pizza'),
+      ).rejects.toBeInstanceOf(PollNotFoundError);
+      expect(repository.setVote).not.toHaveBeenCalled();
+    });
+
+    it('refuses an answer from outside this poll', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getPollOptionIds.mockResolvedValue(['pizza', 'ramen']);
+
+      await expect(
+        new QuacksService(repository).vote(viewer, 'q1', 'other-polls-answer'),
+      ).rejects.toBeInstanceOf(NotAPollOptionError);
+      expect(repository.setVote).not.toHaveBeenCalled();
     });
   });
 });
