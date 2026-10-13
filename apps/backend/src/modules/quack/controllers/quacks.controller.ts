@@ -95,7 +95,11 @@ export class QuacksController {
     @Body() body: VoteDto,
   ): Promise<PollResponseDto> {
     try {
-      return await this.quacksService.vote(user, quackId, body.optionId);
+      return await this.quacksService.vote(user, quackId, {
+        optionId: body.optionId,
+        clientId: body.clientId,
+        clientSeq: body.clientSeq,
+      });
     } catch (error) {
       if (error instanceof PollNotFoundError) {
         throw new NotFoundException('This poll does not exist');

@@ -159,18 +159,31 @@ export class QuackRepository {
    * (quackId, userId) means a second vote can only ever update the first, even
    * when two arrive at the same moment, so a person has at most one vote.
    * The (optionId, quackId) foreign key refuses an answer from another poll.
+   *
+   * My last click wins: a vote from the same tab (clientId) only replaces the
+   * stored one when its click counter (clientSeq) is higher, so an older click
+   * that arrives late is skipped. Postgres checks this under the row lock, as
+   * part of the same statement, so nothing can slip in between. Tabs don't
+   * share a counter, so a vote from another tab always replaces it.
+   * Re-picking the same answer still records the newer counter.
    */
   async setVote(vote: {
     quackId: string;
     userId: string;
     optionId: string;
+    clientId: string;
+    clientSeq: number;
   }): Promise<void> {
     await this.prisma.$executeRaw`
-      INSERT INTO "poll_vote" ("quackId", "userId", "optionId")
-      VALUES (${vote.quackId}, ${vote.userId}, ${vote.optionId})
+      INSERT INTO "poll_vote" ("quackId", "userId", "optionId", "clientId", "clientSeq")
+      VALUES (${vote.quackId}, ${vote.userId}, ${vote.optionId}, ${vote.clientId}::uuid, ${vote.clientSeq})
       ON CONFLICT ("quackId", "userId") DO UPDATE
-        SET "optionId" = EXCLUDED."optionId", "updatedAt" = now()
-        WHERE "poll_vote"."optionId" <> EXCLUDED."optionId"
+        SET "optionId" = EXCLUDED."optionId",
+            "clientId" = EXCLUDED."clientId",
+            "clientSeq" = EXCLUDED."clientSeq",
+            "updatedAt" = now()
+        WHERE "poll_vote"."clientId" <> EXCLUDED."clientId"
+           OR "poll_vote"."clientSeq" < EXCLUDED."clientSeq"
     `;
   }
 }

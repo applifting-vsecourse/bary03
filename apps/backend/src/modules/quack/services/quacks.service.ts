@@ -37,14 +37,16 @@ export class QuacksService {
   }
 
   /**
-   * Sets the user's vote in a poll, replacing any earlier one, and returns the
-   * poll as it is after the vote, counts included.
+   * Sets the user's vote in a poll, replacing any earlier one unless it is an
+   * older click from the same tab, and returns the poll as it is now, counts
+   * included.
    */
   async vote(
     user: Identity,
     quackId: string,
-    optionId: string,
+    vote: { optionId: string; clientId: string; clientSeq: number },
   ): Promise<QuackPoll> {
+    const { optionId, clientId, clientSeq } = vote;
     const optionIds = await this.quackRepository.getPollOptionIds(quackId);
     if (optionIds.length === 0) {
       throw new PollNotFoundError(quackId);
@@ -53,7 +55,13 @@ export class QuacksService {
       throw new NotAPollOptionError(optionId, quackId);
     }
     // the voter is taken from the session, never from the request body
-    await this.quackRepository.setVote({ quackId, userId: user.id, optionId });
+    await this.quackRepository.setVote({
+      quackId,
+      userId: user.id,
+      optionId,
+      clientId,
+      clientSeq,
+    });
     const poll = await this.quackRepository.getPoll(quackId, user.id);
     if (!poll) {
       throw new PollNotFoundError(quackId);
