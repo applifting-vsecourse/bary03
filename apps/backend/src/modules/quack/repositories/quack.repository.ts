@@ -161,6 +161,7 @@ export class QuackRepository {
    * Deletes the quack only if `authorId` wrote it; its poll answers and votes
    * go with it (cascade). Matching on both columns in the one statement means
    * the ownership check can't be raced, whatever the caller checked before.
+   * For a moderator, `authorId` is the author they were allowed to act on.
    * Returns whether a quack was deleted.
    */
   async deleteQuack(quackId: string, authorId: string): Promise<boolean> {

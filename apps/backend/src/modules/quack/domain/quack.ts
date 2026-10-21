@@ -56,7 +56,10 @@ export class QuackNotFoundError extends Error {
   }
 }
 
-/** Someone other than the author tried to change the quack. */
+/** The role that may delete anyone's quack (see story.md: Moderation). */
+export const MODERATOR_ROLE = 'admin';
+
+/** Someone who is neither the author nor a moderator tried to change the quack. */
 export class NotQuackAuthorError extends Error {
   constructor(quackId: string, userId: string) {
     super(`User ${userId} is not the author of quack ${quackId}`);

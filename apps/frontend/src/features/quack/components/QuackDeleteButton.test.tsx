@@ -22,7 +22,7 @@ const quack = (id: string): Quack => ({
   poll: null,
 })
 
-const setup = () => {
+const setup = (moderatedAuthorName?: string) => {
   const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
   // The quack is in the All feed and in Mine.
   queryClient.setQueryData(quackKeys.list(""), [quack("q1"), quack("q2")])
@@ -30,7 +30,10 @@ const setup = () => {
   vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue()
   render(
     <QueryClientProvider client={queryClient}>
-      <QuackDeleteButton quackId="q1" />
+      <QuackDeleteButton
+        quackId="q1"
+        moderatedAuthorName={moderatedAuthorName}
+      />
     </QueryClientProvider>,
   )
   const ids = (filter: "all" | "mine") =>
@@ -88,5 +91,44 @@ describe("QuackDeleteButton", () => {
     ).toBeInTheDocument()
     expect(screen.getByRole("alertdialog")).toBeInTheDocument()
     expect(ids("all")).toEqual(["q1", "q2"])
+  })
+  describe("as a moderator", () => {
+    it("names the author and says I'm deleting it as a moderator", async () => {
+      setup("Deep Duck Thoughts")
+
+      await userEvent.click(screen.getByRole("button", { name: "Delete quack" }))
+
+      const dialog = screen.getByRole("alertdialog", { name: "Delete Deep Duck Thoughts' quack?" })
+      expect(dialog).toHaveTextContent("You're deleting it as a moderator.")
+    })
+
+    it("uses 's for a name that doesn't end in s", async () => {
+      setup("Caffeinated Duck")
+
+      await userEvent.click(screen.getByRole("button", { name: "Delete quack" }))
+
+      expect(
+        screen.getByRole("alertdialog", { name: "Delete Caffeinated Duck's quack?" }),
+      ).toBeInTheDocument()
+    })
+
+    it("deletes once confirmed", async () => {
+      const { ids } = setup("Deep Duck Thoughts")
+
+      await userEvent.click(screen.getByRole("button", { name: "Delete quack" }))
+      await userEvent.click(screen.getByRole("button", { name: "Delete" }))
+
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument())
+      expect(del).toHaveBeenCalledWith("quacks/q1")
+      expect(ids("all")).toEqual(["q2"])
+    })
+  })
+
+  it("says nothing about moderating on my own quack", async () => {
+    setup()
+
+    await userEvent.click(screen.getByRole("button", { name: "Delete quack" }))
+
+    expect(screen.getByRole("alertdialog")).not.toHaveTextContent("moderator")
   })
 })

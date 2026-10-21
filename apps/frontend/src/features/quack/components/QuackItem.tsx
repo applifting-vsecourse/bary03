@@ -8,13 +8,16 @@ import { QuackPoll } from "@/features/quack/components/QuackPoll"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
+/** Why the signed-in user may delete this quack: they wrote it, or they moderate. */
+export type QuackDeleteAs = "author" | "moderator"
+
 type QuackItemProps = {
   quack: Quack
-  /** Shows the delete action; true only on the signed-in user's own quacks. */
-  canDelete?: boolean
+  /** Shows the delete action; leave out when the signed-in user may not delete it. */
+  deleteAs?: QuackDeleteAs
 }
 
-export function QuackItem({ quack, canDelete = false }: QuackItemProps) {
+export function QuackItem({ quack, deleteAs }: QuackItemProps) {
   const { name, username } = quack.user
 
   const initials = name
@@ -45,9 +48,12 @@ export function QuackItem({ quack, canDelete = false }: QuackItemProps) {
               </span>
             </>
           ) : null}
-          {canDelete ? (
+          {deleteAs ? (
             <span className="ml-auto self-center">
-              <QuackDeleteButton quackId={quack.id} />
+              <QuackDeleteButton
+                quackId={quack.id}
+                moderatedAuthorName={deleteAs === "moderator" ? name : undefined}
+              />
             </span>
           ) : null}
         </div>

@@ -1,4 +1,5 @@
 import {
+  MODERATOR_ROLE,
   NotAPollOptionError,
   NotQuackAuthorError,
   PollNotFoundError,
@@ -47,20 +48,27 @@ export class QuacksService {
   }
 
   /**
-   * Deletes a quack, but only for its author. The user is the session's user,
-   * never anything the caller sends.
+   * Deletes a quack for its author or for a moderator. The user and their
+   * role are the session's, never anything the caller sends.
    */
   async deleteQuack(user: Identity, quackId: string): Promise<void> {
     const authorId = await this.quackRepository.getQuackAuthorId(quackId);
     if (authorId === null) {
       throw new QuackNotFoundError(quackId);
     }
-    if (authorId !== user.id) {
+    const isAuthor = authorId === user.id;
+    const isModerator = user.role === MODERATOR_ROLE;
+    if (!isAuthor && !isModerator) {
       throw new NotQuackAuthorError(quackId, user.id);
     }
     // The repository matches the author again in the delete itself, so the
     // quack can't change hands (or vanish) between the check and the delete.
-    const deleted = await this.quackRepository.deleteQuack(quackId, user.id);
+    // Everyone but a moderator must be that author themselves; a moderator
+    // deletes the quack of the author just checked.
+    const deleted = await this.quackRepository.deleteQuack(
+      quackId,
+      isModerator ? authorId : user.id,
+    );
     if (!deleted) {
       throw new QuackNotFoundError(quackId);
     }

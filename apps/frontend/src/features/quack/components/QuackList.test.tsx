@@ -97,6 +97,40 @@ describe("QuackList", () => {
     expect(screen.getAllByRole("button", { name: "Delete quack" })).toHaveLength(1)
   })
 
+  it("offers a delete action on every quack to a moderator", () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <QuackList
+          viewerId="mod"
+          viewerRole="admin"
+          quacks={[
+            quack(),
+            quack({
+              id: "q2",
+              text: "not mine either",
+              userId: "u2",
+              user: { id: "u2", name: "Deep Duck", username: "DeepDuck" },
+            }),
+          ]}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getAllByRole("button", { name: "Delete quack" })).toHaveLength(2)
+  })
+
+  it("offers no delete action on other people's quacks to any other role", () => {
+    render(
+      <QuackList
+        viewerId="u9"
+        viewerRole="user"
+        quacks={[quack()]}
+      />,
+    )
+
+    expect(screen.queryByRole("button", { name: "Delete quack" })).not.toBeInTheDocument()
+  })
+
   it("offers no delete action without a viewer", () => {
     render(<QuackList quacks={[quack()]} />)
 
