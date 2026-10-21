@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class ListQuacksQueryDto {
   @ApiPropertyOptional({
@@ -12,4 +12,18 @@ export class ListQuacksQueryDto {
   @IsString()
   @MaxLength(100)
   q?: string;
+
+  @ApiPropertyOptional({
+    description:
+      '"true" returns only the signed-in user\'s own quacks. The author always comes from the session.',
+    enum: ['true', 'false'],
+    example: 'true',
+  })
+  @IsOptional()
+  // Kept as the string the URL carries: Boolean("false") would be true.
+  @IsIn(['true', 'false'], {
+    message: ({ value }) =>
+      `mine must be "true" or "false" (you sent ${JSON.stringify(value)}).`,
+  })
+  mine?: 'true' | 'false';
 }

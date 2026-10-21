@@ -41,7 +41,7 @@ async function main(): Promise<void> {
     .setTitle(config.name)
     .setDescription(config.description)
     .setVersion(config.version)
-    .addServer('/api')
+    // No .addServer('/api'): the paths already carry the global prefix.
     .addCookieAuth('better-auth.session_token')
     .build();
 

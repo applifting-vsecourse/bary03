@@ -20,4 +20,17 @@ describe('ListQuacksQueryDto', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0].property).toBe('q');
   });
+
+  it.each(['true', 'false'])('accepts mine=%s', async (mine) => {
+    await expect(errorsFor({ mine })).resolves.toHaveLength(0);
+  });
+
+  it('says what is wrong with any other mine', async () => {
+    const errors = await errorsFor({ mine: 'yes' });
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].constraints).toEqual({
+      isIn: 'mine must be "true" or "false" (you sent "yes").',
+    });
+  });
 });

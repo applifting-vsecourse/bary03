@@ -1,8 +1,10 @@
+import { useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { Seo } from "@/components/Seo"
 
+import { useSession } from "@/features/auth/hooks/useSession"
 import { QuackFeed } from "@/features/quack/components/QuackFeed"
 import { QuackForm } from "@/features/quack/components/QuackForm"
 import { settingsQueryOptions } from "@/features/settings/api/settingsQueryOptions"
@@ -16,6 +18,8 @@ export const Route = createFileRoute("/_ProtectedPages/quacks")({
 
 function QuacksPage() {
   const { data: settings } = useQuery(settingsQueryOptions())
+  const { user } = useSession()
+  const quackText = useRef<HTMLTextAreaElement>(null)
 
   return (
     <>
@@ -25,10 +29,14 @@ function QuacksPage() {
 
         <QuackForm
           defaultMood={settings?.defaultMood ?? undefined}
+          textRef={quackText}
           className="mb-8"
         />
 
-        <QuackFeed />
+        <QuackFeed
+          viewerId={user?.id}
+          onWriteFirst={() => quackText.current?.focus()}
+        />
       </section>
     </>
   )

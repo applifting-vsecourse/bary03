@@ -1,4 +1,5 @@
 // Example component test — the pattern to copy for your own components.
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
@@ -73,6 +74,33 @@ describe("QuackList", () => {
     render(<QuackList quacks={[quack()]} />)
 
     expect(screen.queryByText(/votes?$/)).not.toBeInTheDocument()
+  })
+
+  it("offers a delete action only on the viewer's own quacks", () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <QuackList
+          viewerId="u1"
+          quacks={[
+            quack(),
+            quack({
+              id: "q2",
+              text: "not mine",
+              userId: "u2",
+              user: { id: "u2", name: "Deep Duck", username: "DeepDuck" },
+            }),
+          ]}
+        />
+      </QueryClientProvider>,
+    )
+
+    expect(screen.getAllByRole("button", { name: "Delete quack" })).toHaveLength(1)
+  })
+
+  it("offers no delete action without a viewer", () => {
+    render(<QuackList quacks={[quack()]} />)
+
+    expect(screen.queryByRole("button", { name: "Delete quack" })).not.toBeInTheDocument()
   })
 
   it("says the feed is empty when there are no quacks", () => {

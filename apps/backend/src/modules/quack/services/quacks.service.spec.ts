@@ -2,8 +2,10 @@
 // The repository is mocked, so the test exercises the service in isolation.
 import {
   NotAPollOptionError,
+  NotQuackAuthorError,
   PollNotFoundError,
   Quack,
+  QuackNotFoundError,
   QuackPoll,
 } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
@@ -53,7 +55,10 @@ describe('QuacksService', () => {
 
     await expect(service.getQuacks(viewer)).resolves.toEqual(quacks);
     // polls are read as the signed-in user sees them (their own answer)
-    expect(repository.getQuacks).toHaveBeenCalledWith('u1', undefined);
+    expect(repository.getQuacks).toHaveBeenCalledWith('u1', {
+      search: undefined,
+      authorId: undefined,
+    });
   });
 
   it.each([
@@ -66,9 +71,12 @@ describe('QuacksService', () => {
     const repository = mock<QuackRepository>();
     repository.getQuacks.mockResolvedValue([]);
 
-    await new QuacksService(repository).getQuacks(viewer, search);
+    await new QuacksService(repository).getQuacks(viewer, { search });
 
-    expect(repository.getQuacks).toHaveBeenCalledWith('u1', expected);
+    expect(repository.getQuacks).toHaveBeenCalledWith('u1', {
+      search: expected,
+      authorId: undefined,
+    });
   });
 
   it.each([undefined, '', '   ', '@'])(
@@ -77,11 +85,30 @@ describe('QuacksService', () => {
       const repository = mock<QuackRepository>();
       repository.getQuacks.mockResolvedValue([]);
 
-      await new QuacksService(repository).getQuacks(viewer, search);
+      await new QuacksService(repository).getQuacks(viewer, { search });
 
-      expect(repository.getQuacks).toHaveBeenCalledWith('u1', undefined);
+      expect(repository.getQuacks).toHaveBeenCalledWith('u1', {
+        search: undefined,
+        authorId: undefined,
+      });
     },
   );
+
+  it("returns only the signed-in user's quacks for mine", async () => {
+    const repository = mock<QuackRepository>();
+    repository.getQuacks.mockResolvedValue([]);
+
+    await new QuacksService(repository).getQuacks(viewer, {
+      search: 'bread',
+      mine: true,
+    });
+
+    // the author comes from the session, not from the caller's query
+    expect(repository.getQuacks).toHaveBeenCalledWith('u1', {
+      search: 'bread',
+      authorId: 'u1',
+    });
+  });
 
   it('creates a quack owned by the signed-in user', async () => {
     const created = aQuack({ id: 'q2', text: 'hello' });
@@ -136,6 +163,49 @@ describe('QuacksService', () => {
       mood: null,
       userId: 'u1',
       pollAnswers: ['Pizza', 'Ramen', 'Salad bar'],
+    });
+  });
+
+  describe('deleteQuack', () => {
+    it("deletes the signed-in user's own quack", async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackAuthorId.mockResolvedValue('u1');
+      repository.deleteQuack.mockResolvedValue(true);
+
+      await expect(
+        new QuacksService(repository).deleteQuack(viewer, 'q1'),
+      ).resolves.toBeUndefined();
+      expect(repository.deleteQuack).toHaveBeenCalledWith('q1', 'u1');
+    });
+
+    it("refuses someone else's quack and deletes nothing", async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackAuthorId.mockResolvedValue('u2');
+
+      await expect(
+        new QuacksService(repository).deleteQuack(viewer, 'q1'),
+      ).rejects.toBeInstanceOf(NotQuackAuthorError);
+      expect(repository.deleteQuack).not.toHaveBeenCalled();
+    });
+
+    it('refuses a quack that does not exist', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackAuthorId.mockResolvedValue(null);
+
+      await expect(
+        new QuacksService(repository).deleteQuack(viewer, 'missing'),
+      ).rejects.toBeInstanceOf(QuackNotFoundError);
+      expect(repository.deleteQuack).not.toHaveBeenCalled();
+    });
+
+    it('reports a quack deleted between the check and the delete', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackAuthorId.mockResolvedValue('u1');
+      repository.deleteQuack.mockResolvedValue(false);
+
+      await expect(
+        new QuacksService(repository).deleteQuack(viewer, 'q1'),
+      ).rejects.toBeInstanceOf(QuackNotFoundError);
     });
   });
 
