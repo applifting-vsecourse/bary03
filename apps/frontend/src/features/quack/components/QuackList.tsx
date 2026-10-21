@@ -5,7 +5,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
-import { QuackItem } from "@/features/quack/components/QuackItem"
+import { QuackItem, type QuackDeleteAs } from "@/features/quack/components/QuackItem"
+
+// The role that may delete anyone's quack; the server enforces the same rule.
+const MODERATOR_ROLE = "admin"
 
 type QuackListProps = {
   quacks: Quack[]
@@ -18,6 +21,8 @@ type QuackListProps = {
   emptyAction?: ReactNode
   /** The signed-in user: their quacks get a delete action. */
   viewerId?: string
+  /** The signed-in user's role: a moderator gets a delete action on every quack. */
+  viewerRole?: string
 }
 
 export function QuackList({
@@ -28,7 +33,14 @@ export function QuackList({
   emptyMessage = "No quacks yet. Post the first one.",
   emptyAction,
   viewerId,
+  viewerRole,
 }: QuackListProps) {
+  const deleteAsFor = (quack: Quack): QuackDeleteAs | undefined => {
+    if (viewerId !== undefined && quack.userId === viewerId) return "author"
+    if (viewerRole === MODERATOR_ROLE) return "moderator"
+    return undefined
+  }
+
   return (
     <div className="flex flex-col">
       {isLoading && quacks.length === 0 ? (
@@ -70,7 +82,7 @@ export function QuackList({
         <QuackItem
           key={quack.id}
           quack={quack}
-          canDelete={viewerId !== undefined && quack.userId === viewerId}
+          deleteAs={deleteAsFor(quack)}
         />
       ))}
     </div>

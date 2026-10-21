@@ -16,10 +16,20 @@ import { Button } from "@/components/ui/button"
 
 import { useDeleteQuack } from "@/features/quack/hooks/useDeleteQuack"
 
-type QuackDeleteButtonProps = { quackId: string }
+type QuackDeleteButtonProps = {
+  quackId: string
+  /** Set when a moderator deletes someone else's quack: whose it is. */
+  moderatedAuthorName?: string
+}
 
-/** Deletes a quack after the author confirms. Only render it on the author's own quacks. */
-export function QuackDeleteButton({ quackId }: QuackDeleteButtonProps) {
+// "Deep Duck Thoughts' quack", "Caffeinated Duck's quack"
+const possessive = (name: string): string => (name.endsWith("s") ? `${name}'` : `${name}'s`)
+
+/**
+ * Deletes a quack after confirmation. Render it only where the signed-in user
+ * may delete: their own quacks, or any quack for a moderator.
+ */
+export function QuackDeleteButton({ quackId, moderatedAuthorName }: QuackDeleteButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const deleteQuack = useDeleteQuack()
 
@@ -47,8 +57,13 @@ export function QuackDeleteButton({ quackId }: QuackDeleteButtonProps) {
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this quack?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {moderatedAuthorName
+              ? `Delete ${possessive(moderatedAuthorName)} quack?`
+              : "Delete this quack?"}
+          </AlertDialogTitle>
           <AlertDialogDescription>
+            {moderatedAuthorName ? "You're deleting it as a moderator. " : null}
             It disappears from the feed for everyone, with any poll votes. You can&apos;t undo this.
           </AlertDialogDescription>
         </AlertDialogHeader>

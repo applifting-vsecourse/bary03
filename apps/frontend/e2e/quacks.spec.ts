@@ -51,3 +51,37 @@ test("nobody can delete someone else's quack", async ({ browser, page }) => {
     await authorContext.close()
   }
 })
+
+test("moderator can delete someone else's quack", async ({ browser, page }) => {
+  // CaffeinatedDuck posts the quack the moderator deletes, so the test never
+  // removes seeded data.
+  const authorContext = await browser.newContext()
+  const authorPage = await authorContext.newPage()
+  await signIn(authorPage, "caffeinatedduck@example.com", "password1")
+  const text = `Moderate me ${Date.now()}`
+  const created = await authorPage.request.post(`${API_URL}/quacks`, { data: { text } })
+  expect(created.status()).toBe(201)
+  const { id } = (await created.json()) as { id: string }
+
+  try {
+    await signIn(page, "admin@example.com", "adminpassword")
+    await page.goto("/quacks")
+
+    const item = page.getByRole("article").filter({ hasText: text })
+    await item.getByRole("button", { name: "Delete quack" }).click()
+    const dialog = page.getByRole("alertdialog", { name: "Delete Caffeinated Duck's quack?" })
+    await expect(dialog).toContainText("You're deleting it as a moderator.")
+    await dialog.getByRole("button", { name: "Delete", exact: true }).click()
+
+    await expect(dialog).toBeHidden()
+    await expect(page.getByText(text)).toHaveCount(0)
+    // gone on the server too, for the author as well
+    const feed = (await (await authorPage.request.get(`${API_URL}/quacks`)).json()) as {
+      id: string
+    }[]
+    expect(feed.map((quack) => quack.id)).not.toContain(id)
+  } finally {
+    await authorPage.request.delete(`${API_URL}/quacks/${id}`)
+    await authorContext.close()
+  }
+})

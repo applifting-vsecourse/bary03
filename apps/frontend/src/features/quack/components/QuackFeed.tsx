@@ -24,13 +24,15 @@ const isQuackFilter = (value: string): value is QuackFilter =>
 type QuackFeedProps = {
   /** The signed-in user: their quacks get a delete action. */
   viewerId?: string
+  /** The signed-in user's role: a moderator gets a delete action on every quack. */
+  viewerRole?: string
   /** Takes the user to the post form, from Mine when they have no quacks yet. */
   onWriteFirst?: () => void
 }
 
 // The search and the tab live in component state only: a reload starts with
 // the full feed.
-export function QuackFeed({ viewerId, onWriteFirst }: QuackFeedProps) {
+export function QuackFeed({ viewerId, viewerRole, onWriteFirst }: QuackFeedProps) {
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<QuackFilter>("all")
   const debouncedSearch = useDebouncedValue(search.trim(), SEARCH_DEBOUNCE_MS)
@@ -64,6 +66,7 @@ export function QuackFeed({ viewerId, onWriteFirst }: QuackFeedProps) {
         ) : undefined
       }
       viewerId={viewerId}
+      viewerRole={viewerRole}
       // Only the error state offers a retry — posting invalidates the list,
       // and refocusing the tab refetches it.
       onReload={() => void quacksQuery.refetch()}

@@ -35,6 +35,7 @@ function QuacksPage() {
 
         <QuackFeed
           viewerId={user?.id}
+          viewerRole={user?.role}
           onWriteFirst={() => quackText.current?.focus()}
         />
       </section>
