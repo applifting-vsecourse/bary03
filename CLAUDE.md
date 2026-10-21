@@ -51,3 +51,7 @@ Don't reach for the browser to check your own work. Tests and type-checks are th
 ### Check Swagger after API changes
 
 After any change to the API or to the Swagger setup in `main.ts`, open Swagger (`localhost:4050/api/docs`) and use "Try it out" on a changed endpoint. Confirm the request goes to `/api/...`, not `/api/api/...`, and gets a real response from the endpoint (200, 401 or 403, not a 404 from a wrong path). The review tests permissions through Swagger, so a broken Swagger means the review can't check them. The paths already carry the global `api` prefix; don't add `/api` as a Swagger server.
+
+### No `rm` on a path built from a variable that might be empty
+
+In shell commands, never run `rm` on a path built from a variable that could be empty or unset. `rm -f $S/*.jar` with an empty `$S` becomes `rm -f /*.jar`, which points at the root of the disk. Write `rm -f "${S:?}"/*.jar`, so the shell stops with an error if the variable is empty, or use a fixed literal path.
