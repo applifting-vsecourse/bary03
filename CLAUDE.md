@@ -46,4 +46,8 @@ A mutation that updates the screen before the server answers must set `networkMo
 
 Assume the dev servers are up. If something is listening on the app's ports, that is this application: use it. Don't start a second instance, don't restart it, don't run `pnpm dev`.
 
-Don't reach for the browser to check your own work. Tests and type-checks are the evidence; open the running app when asked to, not on your own initiative.
+Don't reach for the browser to check your own work. Tests and type-checks are the evidence; open the running app when asked to, not on your own initiative. The one standing exception is Swagger, below.
+
+### Check Swagger after API changes
+
+After any change to the API or to the Swagger setup in `main.ts`, open Swagger (`localhost:4050/api/docs`) and use "Try it out" on a changed endpoint. Confirm the request goes to `/api/...`, not `/api/api/...`, and gets a real response from the endpoint (200, 401 or 403, not a 404 from a wrong path). The review tests permissions through Swagger, so a broken Swagger means the review can't check them. The paths already carry the global `api` prefix; don't add `/api` as a Swagger server.
