@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, type RefObject } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { ListChecks, Loader2 } from "lucide-react"
 import { useFieldArray, useForm, useWatch } from "react-hook-form"
@@ -29,10 +29,12 @@ import { useAddQuack } from "@/features/quack/hooks/useAddQuack"
 type QuackFormProps = {
   /** The mood the form starts with, and returns to after posting. */
   defaultMood?: QuackMood
+  /** Lets the page put the cursor in the text field, e.g. from an empty feed. */
+  textRef?: RefObject<HTMLTextAreaElement | null>
   className?: string
 }
 
-export function QuackForm({ defaultMood, className }: QuackFormProps) {
+export function QuackForm({ defaultMood, textRef, className }: QuackFormProps) {
   const addQuack = useAddQuack()
   const form = useForm<QuackFormValues>({
     resolver: zodResolver(quackFormSchema),
@@ -105,6 +107,10 @@ export function QuackForm({ defaultMood, className }: QuackFormProps) {
                     placeholder="Quack something..."
                     disabled={addQuack.isPending}
                     {...field}
+                    ref={(element) => {
+                      field.ref(element)
+                      if (textRef) textRef.current = element
+                    }}
                   />
                 </FormControl>
                 <FormMessage />

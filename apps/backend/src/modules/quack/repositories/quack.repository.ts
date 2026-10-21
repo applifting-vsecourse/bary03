@@ -88,24 +88,30 @@ export class QuackRepository {
   /**
    * With a search, returns only quacks where the whole phrase appears, ignoring
    * case, in the text, the author's name or the author's username.
+   * With an `authorId`, returns only that user's quacks.
    * Polls say which answer `viewerId` picked.
    */
-  async getQuacks(viewerId: string, search?: string): Promise<Quack[]> {
+  async getQuacks(
+    viewerId: string,
+    filter: { search?: string; authorId?: string } = {},
+  ): Promise<Quack[]> {
+    const { search, authorId } = filter;
     const contains = search
       ? { contains: escapeLikePattern(search), mode: 'insensitive' as const }
       : undefined;
     const quacks = await this.prisma.$transaction(
       (tx) =>
         tx.quack.findMany({
-          where: contains
-            ? {
-                OR: [
+          where: {
+            userId: authorId,
+            OR: contains
+              ? [
                   { text: contains },
                   { user: { name: contains } },
                   { user: { username: contains } },
-                ],
-              }
-            : undefined,
+                ]
+              : undefined,
+          },
           include: { user: true, ...pollInclude(viewerId) },
           orderBy: { createdAt: 'desc' },
         }),
@@ -140,6 +146,28 @@ export class QuackRepository {
       include: { user: true, ...pollInclude(createQuackData.userId) },
     });
     return mapPrismaQuackToDomain(quack);
+  }
+
+  /** Who wrote the quack, or null when it doesn't exist. */
+  async getQuackAuthorId(quackId: string): Promise<string | null> {
+    const quack = await this.prisma.quack.findUnique({
+      where: { id: quackId },
+      select: { userId: true },
+    });
+    return quack?.userId ?? null;
+  }
+
+  /**
+   * Deletes the quack only if `authorId` wrote it; its poll answers and votes
+   * go with it (cascade). Matching on both columns in the one statement means
+   * the ownership check can't be raced, whatever the caller checked before.
+   * Returns whether a quack was deleted.
+   */
+  async deleteQuack(quackId: string, authorId: string): Promise<boolean> {
+    const { count } = await this.prisma.quack.deleteMany({
+      where: { id: quackId, userId: authorId },
+    });
+    return count > 0;
   }
 
   /** The ids of a poll's answers; empty when the quack doesn't exist or isn't a poll. */

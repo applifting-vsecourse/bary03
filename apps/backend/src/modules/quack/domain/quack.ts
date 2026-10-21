@@ -48,3 +48,17 @@ export class NotAPollOptionError extends Error {
     super(`Option ${optionId} is not an answer of poll ${quackId}`);
   }
 }
+
+/** No quack has this id. */
+export class QuackNotFoundError extends Error {
+  constructor(quackId: string) {
+    super(`Quack ${quackId} does not exist`);
+  }
+}
+
+/** Someone other than the author tried to change the quack. */
+export class NotQuackAuthorError extends Error {
+  constructor(quackId: string, userId: string) {
+    super(`User ${userId} is not the author of quack ${quackId}`);
+  }
+}
