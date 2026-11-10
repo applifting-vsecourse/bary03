@@ -6,4 +6,5 @@ export const quackKeys = {
   lists: () => [...quackKeys.all(), "list"] as const,
   list: (search: string, filter: QuackFilter = "all") =>
     [...quackKeys.lists(), { search, filter }] as const,
+  replies: (quackId: string) => [...quackKeys.all(), "replies", quackId] as const,
 }

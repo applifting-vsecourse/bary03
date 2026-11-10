@@ -33,18 +33,29 @@ enum QuackMood {
 
 model Quack {
   id        String     @id @default(cuid())
-  text      String     @db.Text
+  // null only on a deleted quack kept for its replies (a placeholder)
+  text      String?    @db.Text
   mood      QuackMood?
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  // null only on a placeholder: a deleted quack keeps nothing about its author
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @default(now()) @updatedAt
+
+  // A reply is a quack with a parent; replies go one level deep. Restrict:
+  // a quack with replies is wiped, never deleted, so replies can't vanish
+  // with it, even if something bypasses the service (docs/adr/0001).
+  parent   Quack?  @relation("QuackReplies", fields: [parentId], references: [id], onDelete: Restrict)
+  parentId String?
+  replies  Quack[] @relation("QuackReplies")
 
   // A quack is a poll exactly when it has answers.
   pollOptions PollOption[]
   pollVotes   PollVote[]
 
   @@index([userId])
+  // the feed (parentId null, newest first) and a quack's replies (oldest first)
+  @@index([parentId, createdAt])
   @@map("quack")
 }
 

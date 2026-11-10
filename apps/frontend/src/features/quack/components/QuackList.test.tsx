@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
-import type { Quack } from "@/features/quack/api/quackSchemas"
+import type { DeletedQuack, LiveQuack } from "@/features/quack/api/quackSchemas"
 import { QuackList } from "@/features/quack/components/QuackList"
 
 // A list renders polls, and a poll votes through this hook; stub it.
@@ -12,14 +12,22 @@ vi.mock("@/features/quack/hooks/useVote", () => ({
   useVote: () => ({ vote: vi.fn(), isError: false }),
 }))
 
-const quack = (overrides: Partial<Quack> = {}): Quack => ({
+// Opening replies loads them; these tests only look at what's around the
+// list, so the request never answers.
+vi.mock("@/lib/api-client", () => ({
+  api: { get: () => ({ json: () => new Promise(() => undefined) }) },
+}))
+
+const quack = (overrides: Partial<LiveQuack> = {}): LiveQuack => ({
   id: "q1",
+  deleted: false,
   text: "quack quack",
   mood: null,
   userId: "u1",
   createdAt: new Date("2026-01-01T12:00:00Z"),
   user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
   poll: null,
+  replyCount: 0,
   ...overrides,
 })
 
@@ -170,5 +178,49 @@ describe("QuackList", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /reload/i }))
     expect(onReload).toHaveBeenCalledOnce()
+  })
+})
+
+describe("QuackList with a deleted quack", () => {
+  const placeholder: DeletedQuack = {
+    id: "gone",
+    deleted: true,
+    text: null,
+    mood: null,
+    userId: null,
+    createdAt: new Date("2026-01-01T12:00:00Z"),
+    user: null,
+    poll: null,
+    replyCount: 2,
+  }
+
+  const renderList = (viewerRole?: string) =>
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <QuackList
+          quacks={[placeholder]}
+          viewerId="u1"
+          viewerRole={viewerRole}
+        />
+      </QueryClientProvider>,
+    )
+
+  it("shows that it was deleted, its reply count, and nothing to delete", () => {
+    renderList("admin")
+
+    const item = screen.getByRole("article")
+    expect(item).toHaveTextContent("This quack was deleted")
+    expect(screen.getByRole("button", { name: "2 replies" })).toBeInTheDocument()
+    // not even for a moderator: it goes by itself with its last reply
+    expect(screen.queryByRole("button", { name: "Delete quack" })).not.toBeInTheDocument()
+    expect(item.querySelector("time")).toBeNull()
+  })
+
+  it("opens its replies without a reply box", async () => {
+    renderList()
+
+    await userEvent.click(screen.getByRole("button", { name: "2 replies" }))
+
+    expect(screen.queryByLabelText("Your reply")).not.toBeInTheDocument()
   })
 })

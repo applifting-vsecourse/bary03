@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 
 import { HeaderMenu } from "@/features/auth/components/HeaderMenu"
 import { useSession } from "@/features/auth/hooks/useSession"
-import type { Quack } from "@/features/quack/api/quackSchemas"
+import type { LiveQuack } from "@/features/quack/api/quackSchemas"
 import { QuackItem } from "@/features/quack/components/QuackItem"
 
 export const Route = createFileRoute("/")({
@@ -16,24 +16,28 @@ export const Route = createFileRoute("/")({
 
 // Static sample for the preview below. It renders through the same <Quack />
 // component as the real feed, so the landing page can never drift from it.
-const SAMPLE_QUACKS: Quack[] = [
+const SAMPLE_QUACKS: LiveQuack[] = [
   {
     id: "sample-1",
+    deleted: false,
     text: "me: throws one crumb into the pond\nducks: assemble like the Avengers\ni fear i may have started something",
     mood: "silly",
     userId: "sample-user-1",
     createdAt: new Date("2026-09-22T09:12:00"),
     user: { id: "sample-user-1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
     poll: null,
+    replyCount: 0,
   },
   {
     id: "sample-2",
+    deleted: false,
     text: "If ducks wore pants, would they wear them on their legs or over their whole lower half like a cape?\nAsking for a friend. A feathery friend.",
     mood: null,
     userId: "sample-user-2",
     createdAt: new Date("2026-09-22T08:40:00"),
     user: { id: "sample-user-2", name: "Deep Duck Thoughts", username: "DeepDuckThoughts" },
     poll: null,
+    replyCount: 0,
   },
 ]
 

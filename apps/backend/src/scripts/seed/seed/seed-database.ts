@@ -179,12 +179,43 @@ Please stop tagging me.`,
 
   const now = Date.now();
 
+  const seededQuacks: Awaited<ReturnType<typeof createQuack>>[] = [];
   for (const { author, minutesAgo, mood, text } of exampleQuacks) {
-    await createQuack(prisma, {
-      text,
-      mood,
-      userId: author.id,
-      createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
+    seededQuacks.push(
+      await createQuack(prisma, {
+        text,
+        mood,
+        userId: author.id,
+        createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
+      }),
+    );
+  }
+
+  console.log('Creating example replies');
+
+  // The replies the replies story's examples use, oldest first.
+  const pondSky = seededQuacks.find((quack) =>
+    quack.text?.startsWith('If a pond reflects the sky'),
+  );
+  if (pondSky) {
+    await prisma.quack.createMany({
+      data: [
+        {
+          author: caffeinatedDuck,
+          minutesAgo: 1400,
+          text: 'ok but who reflects the pond',
+        },
+        {
+          author: breadCritic,
+          minutesAgo: 1320,
+          text: 'The sky has never once fed me.',
+        },
+      ].map(({ author, minutesAgo, text }) => ({
+        text,
+        userId: author.id,
+        parentId: pondSky.id,
+        createdAt: new Date(now - minutesAgo * MINUTE_IN_MS),
+      })),
     });
   }
 
