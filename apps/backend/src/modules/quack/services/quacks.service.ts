@@ -1,12 +1,15 @@
 import {
+  CannotReplyToReplyError,
   MODERATOR_ROLE,
   NotAPollOptionError,
   NotQuackAuthorError,
   PollNotFoundError,
   Quack,
+  QuackDeletedError,
   QuackMood,
   QuackNotFoundError,
   QuackPoll,
+  Reply,
 } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
@@ -45,6 +48,32 @@ export class QuacksService {
       // the author is taken from the session, never from the request body
       userId: user.id,
     });
+  }
+
+  /**
+   * Posts a reply under a top-level quack that hasn't been deleted. The
+   * author is the session's user, never anything the caller sends.
+   */
+  async createReply(
+    user: Identity,
+    quackId: string,
+    replyData: { text: string },
+  ): Promise<Reply> {
+    const result = await this.quackRepository.createReply({
+      parentId: quackId,
+      userId: user.id,
+      text: replyData.text,
+    });
+    switch (result.status) {
+      case 'created':
+        return result.reply;
+      case 'parent-not-found':
+        throw new QuackNotFoundError(quackId);
+      case 'parent-is-reply':
+        throw new CannotReplyToReplyError(quackId);
+      case 'parent-deleted':
+        throw new QuackDeletedError(quackId);
+    }
   }
 
   /**

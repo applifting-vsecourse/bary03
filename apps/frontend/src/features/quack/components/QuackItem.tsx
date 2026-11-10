@@ -5,6 +5,7 @@ import type { Quack } from "@/features/quack/api/quackSchemas"
 import { QuackDeleteButton } from "@/features/quack/components/QuackDeleteButton"
 import { QuackMoodLabel } from "@/features/quack/components/QuackMoodLabel"
 import { QuackPoll } from "@/features/quack/components/QuackPoll"
+import { QuackReplies } from "@/features/quack/components/QuackReplies"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
@@ -15,9 +16,11 @@ type QuackItemProps = {
   quack: Quack
   /** Shows the delete action; leave out when the signed-in user may not delete it. */
   deleteAs?: QuackDeleteAs
+  /** Shows the replies control and reply box; leave out for a static preview. */
+  canReply?: boolean
 }
 
-export function QuackItem({ quack, deleteAs }: QuackItemProps) {
+export function QuackItem({ quack, deleteAs, canReply }: QuackItemProps) {
   const { name, username } = quack.user
 
   const initials = name
@@ -63,6 +66,12 @@ export function QuackItem({ quack, deleteAs }: QuackItemProps) {
             quackId={quack.id}
             poll={quack.poll}
             className="mt-2"
+          />
+        ) : null}
+        {canReply ? (
+          <QuackReplies
+            quackId={quack.id}
+            replyCount={quack.replyCount}
           />
         ) : null}
       </div>

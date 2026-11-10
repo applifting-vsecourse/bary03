@@ -1,12 +1,16 @@
 // Example unit test — the pattern to copy for your own services.
 // The repository is mocked, so the test exercises the service in isolation.
 import {
+  CannotReplyToReplyError,
   NotAPollOptionError,
   NotQuackAuthorError,
   PollNotFoundError,
   Quack,
+  QuackDeletedError,
+  QuackHasRepliesError,
   QuackNotFoundError,
   QuackPoll,
+  Reply,
 } from '@/modules/quack/domain/quack';
 import { QuackRepository } from '@/modules/quack/repositories/quack.repository';
 import { Identity } from '@/shared/auth/domain/identity';
@@ -22,6 +26,17 @@ const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
   updatedAt: new Date('2026-01-01T12:00:00Z'),
   user: { id: 'u1', name: 'Caffeinated Duck', username: 'CaffeinatedDuck' },
   poll: null,
+  replyCount: 0,
+  ...overrides,
+});
+
+const aReply = (overrides: Partial<Reply> = {}): Reply => ({
+  id: 'r1',
+  text: 'ok but who reflects the pond',
+  parentId: 'q1',
+  userId: 'u1',
+  createdAt: new Date('2026-01-01T12:05:00Z'),
+  user: { id: 'u1', name: 'Caffeinated Duck', username: 'CaffeinatedDuck' },
   ...overrides,
 });
 
@@ -256,6 +271,53 @@ describe('QuacksService', () => {
         new QuacksService(repository).deleteQuack(viewer, 'q1'),
       ).rejects.toBeInstanceOf(QuackNotFoundError);
     });
+
+    it('refuses a quack that has replies, so the replies stay', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getQuackAuthorId.mockResolvedValue('u1');
+      repository.deleteQuack.mockRejectedValue(new QuackHasRepliesError('q1'));
+
+      await expect(
+        new QuacksService(repository).deleteQuack(viewer, 'q1'),
+      ).rejects.toBeInstanceOf(QuackHasRepliesError);
+    });
+  });
+
+  describe('createReply', () => {
+    it('posts a reply owned by the signed-in user under the quack', async () => {
+      const reply = aReply();
+      const repository = mock<QuackRepository>();
+      repository.createReply.mockResolvedValue({ status: 'created', reply });
+
+      await expect(
+        new QuacksService(repository).createReply(viewer, 'q1', {
+          text: 'ok but who reflects the pond',
+        }),
+      ).resolves.toEqual(reply);
+      expect(repository.createReply).toHaveBeenCalledWith({
+        parentId: 'q1',
+        userId: 'u1',
+        text: 'ok but who reflects the pond',
+      });
+    });
+
+    it.each([
+      ['parent-not-found', QuackNotFoundError],
+      ['parent-is-reply', CannotReplyToReplyError],
+      ['parent-deleted', QuackDeletedError],
+    ] as const)(
+      'refuses when the repository says %s',
+      async (status, error) => {
+        const repository = mock<QuackRepository>();
+        repository.createReply.mockResolvedValue({ status });
+
+        await expect(
+          new QuacksService(repository).createReply(viewer, 'q1', {
+            text: 'quack',
+          }),
+        ).rejects.toBeInstanceOf(error);
+      },
+    );
   });
 
   describe('vote', () => {

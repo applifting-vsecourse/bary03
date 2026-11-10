@@ -25,14 +25,29 @@ export type QuackPoll = {
 
 export type Quack = {
   id: string;
-  text: string;
+  /** null only on a placeholder: a deleted quack kept for its replies. */
+  text: string | null;
   mood: QuackMood | null;
-  userId: string;
+  /** null only on a placeholder: it keeps nothing about its author. */
+  userId: string | null;
   createdAt: Date;
   updatedAt: Date;
   user?: QuackAuthor;
   /** null when the quack is not a poll. */
   poll: QuackPoll | null;
+  /** Counted from the reply rows on every read, never stored. */
+  replyCount: number;
+};
+
+/** A quack posted under another quack. Replies go one level deep and are text only. */
+export type Reply = {
+  id: string;
+  text: string;
+  /** The quack this reply answers. */
+  parentId: string;
+  userId: string;
+  createdAt: Date;
+  user: QuackAuthor;
 };
 
 /** The quack doesn't exist, or it isn't a poll. */
@@ -63,5 +78,29 @@ export const MODERATOR_ROLE = 'admin';
 export class NotQuackAuthorError extends Error {
   constructor(quackId: string, userId: string) {
     super(`User ${userId} is not the author of quack ${quackId}`);
+  }
+}
+
+/** The quack being replied to is itself a reply; replies go one level deep. */
+export class CannotReplyToReplyError extends Error {
+  constructor(quackId: string) {
+    super(`Quack ${quackId} is a reply and can't be replied to`);
+  }
+}
+
+/** The quack was deleted and is only kept for its replies, so it takes no new ones. */
+export class QuackDeletedError extends Error {
+  constructor(quackId: string) {
+    super(`Quack ${quackId} was deleted`);
+  }
+}
+
+/**
+ * The quack has replies, so it can't be deleted outright. Until deleting
+ * wipes such a quack instead (story.md, docs/adr/0001), the delete is refused.
+ */
+export class QuackHasRepliesError extends Error {
+  constructor(quackId: string) {
+    super(`Quack ${quackId} has replies`);
   }
 }

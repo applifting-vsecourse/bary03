@@ -29,6 +29,18 @@ export const quackSchema = z.object({
   user: quackUserSchema,
   // null when the quack is not a poll
   poll: quackPollSchema.nullable(),
+  replyCount: z.number(),
+})
+
+// A quack posted under another quack: text only, one level deep.
+export const replySchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  // the quack this reply answers
+  parentId: z.string(),
+  userId: z.string(),
+  createdAt: z.coerce.date(),
+  user: quackUserSchema,
 })
 
 export const quacksSchema = z.array(quackSchema)
@@ -38,3 +50,5 @@ export type QuackMood = z.infer<typeof quackMoodSchema>
 export type QuackPoll = z.infer<typeof quackPollSchema>
 
 export type Quack = z.infer<typeof quackSchema>
+
+export type Reply = z.infer<typeof replySchema>

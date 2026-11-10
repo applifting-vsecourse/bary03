@@ -5,7 +5,14 @@ import {
   Quack as PrismaQuack,
   User as PrismaUser,
 } from '@/generated/prisma/client';
-import { Quack, QuackMood, QuackPoll } from '@/modules/quack/domain/quack';
+import {
+  Quack,
+  QuackAuthor,
+  QuackHasRepliesError,
+  QuackMood,
+  QuackPoll,
+  Reply,
+} from '@/modules/quack/domain/quack';
 import { Injectable } from '@nestjs/common';
 
 // Counts come from the vote rows on every read (a COUNT subquery in the same
@@ -26,6 +33,11 @@ const pollInclude = (viewerId: string) =>
 const consistentRead = {
   isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
 };
+
+// Counted from the reply rows in the same statement, like the poll counts.
+const replyCountInclude = {
+  _count: { select: { replies: true } },
+} as const;
 
 type PrismaPollOptionWithCount = PrismaPollOption & {
   _count: { votes: number };
@@ -48,11 +60,19 @@ const mapPrismaPollToDomain = (
   };
 };
 
+const mapPrismaUserToAuthor = (user: PrismaUser): QuackAuthor => ({
+  id: user.id,
+  name: user.name,
+  // the spelling the user chose; `username` is BetterAuth's lowercased copy
+  username: user.displayUsername ?? user.username ?? '',
+});
+
 const mapPrismaQuackToDomain = (
   quack: PrismaQuack & {
-    user?: PrismaUser;
+    user?: PrismaUser | null;
     pollOptions?: PrismaPollOptionWithCount[];
     pollVotes?: { optionId: string }[];
+    _count?: { replies: number };
   },
 ): Quack => ({
   id: quack.id,
@@ -61,16 +81,39 @@ const mapPrismaQuackToDomain = (
   userId: quack.userId,
   createdAt: quack.createdAt,
   updatedAt: quack.updatedAt,
-  user: quack.user
-    ? {
-        id: quack.user.id,
-        name: quack.user.name,
-        // the spelling the user chose; `username` is BetterAuth's lowercased copy
-        username: quack.user.displayUsername ?? quack.user.username ?? '',
-      }
-    : undefined,
+  user: quack.user ? mapPrismaUserToAuthor(quack.user) : undefined,
   poll: mapPrismaPollToDomain(quack.pollOptions, quack.pollVotes),
+  replyCount: quack._count?.replies ?? 0,
 });
+
+/** The rows a reply is made of; the schema's CHECKs guarantee text and author. */
+const mapPrismaReplyToDomain = (
+  reply: PrismaQuack & { user: PrismaUser | null },
+): Reply => {
+  if (
+    reply.parentId === null ||
+    reply.text === null ||
+    reply.userId === null ||
+    reply.user === null
+  ) {
+    throw new Error(`Quack ${reply.id} is not a reply with text and author`);
+  }
+  return {
+    id: reply.id,
+    text: reply.text,
+    parentId: reply.parentId,
+    userId: reply.userId,
+    createdAt: reply.createdAt,
+    user: mapPrismaUserToAuthor(reply.user),
+  };
+};
+
+/** What came of trying to post a reply under a quack. */
+export type CreateReplyResult =
+  | { status: 'created'; reply: Reply }
+  | { status: 'parent-not-found' }
+  | { status: 'parent-is-reply' }
+  | { status: 'parent-deleted' };
 
 // Prisma passes `contains` straight into ILIKE without escaping, so % and _
 // would act as wildcards. Postgres' default LIKE escape character is \.
@@ -89,6 +132,7 @@ export class QuackRepository {
    * With a search, returns only quacks where the whole phrase appears, ignoring
    * case, in the text, the author's name or the author's username.
    * With an `authorId`, returns only that user's quacks.
+   * Only top-level quacks: replies are never feed items.
    * Polls say which answer `viewerId` picked.
    */
   async getQuacks(
@@ -103,6 +147,7 @@ export class QuackRepository {
       (tx) =>
         tx.quack.findMany({
           where: {
+            parentId: null,
             userId: authorId,
             OR: contains
               ? [
@@ -112,7 +157,11 @@ export class QuackRepository {
                 ]
               : undefined,
           },
-          include: { user: true, ...pollInclude(viewerId) },
+          include: {
+            user: true,
+            ...pollInclude(viewerId),
+            ...replyCountInclude,
+          },
           orderBy: { createdAt: 'desc' },
         }),
       consistentRead,
@@ -143,9 +192,45 @@ export class QuackRepository {
           })),
         },
       },
-      include: { user: true, ...pollInclude(createQuackData.userId) },
+      include: {
+        user: true,
+        ...pollInclude(createQuackData.userId),
+        ...replyCountInclude,
+      },
     });
     return mapPrismaQuackToDomain(quack);
+  }
+
+  /**
+   * Posts a reply under `parentId`, if that quack exists, is not itself a
+   * reply and has not been deleted. FOR SHARE locks the parent until the reply
+   * is written: a delete or wipe of the parent waits for the reply, or the
+   * reply waits for it and then sees the parent as it is afterwards. So a
+   * reply never lands under a quack that is going away.
+   */
+  async createReply(replyData: {
+    parentId: string;
+    userId: string;
+    text: string;
+  }): Promise<CreateReplyResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const [parent] = await tx.$queryRaw<
+        { parentId: string | null; userId: string | null }[]
+      >`SELECT "parentId", "userId" FROM "quack" WHERE "id" = ${replyData.parentId} FOR SHARE`;
+      if (!parent) return { status: 'parent-not-found' };
+      if (parent.parentId !== null) return { status: 'parent-is-reply' };
+      if (parent.userId === null) return { status: 'parent-deleted' };
+
+      const reply = await tx.quack.create({
+        data: {
+          text: replyData.text,
+          user: { connect: { id: replyData.userId } },
+          parent: { connect: { id: replyData.parentId } },
+        },
+        include: { user: true },
+      });
+      return { status: 'created', reply: mapPrismaReplyToDomain(reply) };
+    });
   }
 
   /** Who wrote the quack, or null when it doesn't exist. */
@@ -162,13 +247,27 @@ export class QuackRepository {
    * go with it (cascade). Matching on both columns in the one statement means
    * the ownership check can't be raced, whatever the caller checked before.
    * For a moderator, `authorId` is the author they were allowed to act on.
-   * Returns whether a quack was deleted.
+   * Returns whether a quack was deleted. A reply is deleted the same way.
+   *
+   * Throws QuackHasRepliesError when the quack has replies: the parentId
+   * foreign key (onDelete: Restrict) refuses, so replies can't go with it,
+   * even when one was posted a moment before.
    */
   async deleteQuack(quackId: string, authorId: string): Promise<boolean> {
-    const { count } = await this.prisma.quack.deleteMany({
-      where: { id: quackId, userId: authorId },
-    });
-    return count > 0;
+    try {
+      const { count } = await this.prisma.quack.deleteMany({
+        where: { id: quackId, userId: authorId },
+      });
+      return count > 0;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new QuackHasRepliesError(quackId);
+      }
+      throw error;
+    }
   }
 
   /** The ids of a poll's answers; empty when the quack doesn't exist or isn't a poll. */

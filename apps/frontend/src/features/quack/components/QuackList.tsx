@@ -83,6 +83,7 @@ export function QuackList({
           key={quack.id}
           quack={quack}
           deleteAs={deleteAsFor(quack)}
+          canReply
         />
       ))}
     </div>

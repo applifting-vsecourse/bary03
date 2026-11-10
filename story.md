@@ -28,7 +28,7 @@ The examples use the standard seed data (local), plus two seeded replies under D
 4. A reply never appears as a feed item of its own: not in All, not in Mine, not in search. Searching `who reflects` finds nothing.
 
 ### Writing a reply
-5. Opening the replies on a quack shows a reply box under the replies, with a visible label ("Your reply"), a hint ("Up to 280 characters.") and a Reply button. It's there even when the quack has no replies yet.
+5. Opening the replies on a quack shows a reply box under the replies, with a visible label ("Your reply"), a hint ("Up to 280 characters.") and a "Post reply" button (not "Reply", which is already the name of the control that opens the box). It's there even when the quack has no replies yet.
 6. After I post, my reply appears at the bottom of the list. The count goes up by one, the box empties, and the feed doesn't jump or reorder.
 7. A reply is text only: 1–280 characters. My default mood from settings does not apply to replies.
 8. An empty reply, or one that is only spaces, shows "Reply can't be empty — write something first." in place of the hint, and nothing is sent.

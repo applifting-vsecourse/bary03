@@ -85,3 +85,47 @@ test("moderator can delete someone else's quack", async ({ browser, page }) => {
     await authorContext.close()
   }
 })
+
+test("anyone can reply to a quack and see the count go up", async ({ browser, page }) => {
+  // CaffeinatedDuck posts the quack DeepDuckThoughts replies to, so the test
+  // never touches seeded data.
+  const authorContext = await browser.newContext()
+  const authorPage = await authorContext.newPage()
+  await signIn(authorPage, "caffeinatedduck@example.com", "password1")
+  const text = `Reply to me ${Date.now()}`
+  const created = await authorPage.request.post(`${API_URL}/quacks`, { data: { text } })
+  expect(created.status()).toBe(201)
+  const { id } = (await created.json()) as { id: string }
+  const replyText = `E2E reply ${Date.now()}`
+  let replyId: string | undefined
+
+  try {
+    await signIn(page, "deepduckthoughts@example.com", "password2")
+    await page.goto("/quacks")
+    const item = page.getByRole("article").filter({ hasText: text })
+
+    await item.getByRole("button", { name: "Reply", exact: true }).click()
+    await item.getByRole("button", { name: "Post reply" }).click()
+    await expect(item.getByText("Reply can't be empty — write something first.")).toBeVisible()
+
+    await item.getByLabel("Your reply").fill(replyText)
+    const posted = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/quacks/${id}/replies`) && response.request().method() === "POST",
+    )
+    await item.getByRole("button", { name: "Post reply" }).click()
+    const response = await posted
+    expect(response.status()).toBe(201)
+    replyId = ((await response.json()) as { id: string }).id
+
+    await expect(item.getByRole("button", { name: "1 reply" })).toBeVisible()
+    await expect(item.getByLabel("Your reply")).toHaveValue("")
+    // a reply is never a feed item of its own
+    await expect(page.getByRole("article").filter({ hasText: replyText })).toHaveCount(0)
+  } finally {
+    // A reply is a quack: delete it first, or the quack it answers can't go.
+    if (replyId) await page.request.delete(`${API_URL}/quacks/${replyId}`)
+    await authorPage.request.delete(`${API_URL}/quacks/${id}`)
+    await authorContext.close()
+  }
+})

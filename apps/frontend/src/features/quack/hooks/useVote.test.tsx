@@ -30,6 +30,7 @@ const quackWith = (id: string, quackPoll: QuackPoll): Quack => ({
   createdAt: new Date("2026-01-01T12:00:00Z"),
   user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
   poll: quackPoll,
+  replyCount: 0,
 })
 
 // Each request stays open until the test answers it, so the test decides the
