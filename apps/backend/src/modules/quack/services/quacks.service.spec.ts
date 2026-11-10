@@ -7,7 +7,6 @@ import {
   PollNotFoundError,
   Quack,
   QuackDeletedError,
-  QuackHasRepliesError,
   QuackNotFoundError,
   QuackPoll,
   Reply,
@@ -186,7 +185,7 @@ describe('QuacksService', () => {
     it("deletes the signed-in user's own quack", async () => {
       const repository = mock<QuackRepository>();
       repository.getQuackAuthorId.mockResolvedValue('u1');
-      repository.deleteQuack.mockResolvedValue(true);
+      repository.deleteQuack.mockResolvedValue('deleted');
 
       await expect(
         new QuacksService(repository).deleteQuack(viewer, 'q1'),
@@ -217,7 +216,7 @@ describe('QuacksService', () => {
     it("lets a moderator delete someone else's quack", async () => {
       const repository = mock<QuackRepository>();
       repository.getQuackAuthorId.mockResolvedValue('u2');
-      repository.deleteQuack.mockResolvedValue(true);
+      repository.deleteQuack.mockResolvedValue('deleted');
 
       await expect(
         new QuacksService(repository).deleteQuack(moderator, 'q1'),
@@ -229,7 +228,7 @@ describe('QuacksService', () => {
     it('lets a moderator delete their own quack', async () => {
       const repository = mock<QuackRepository>();
       repository.getQuackAuthorId.mockResolvedValue('mod');
-      repository.deleteQuack.mockResolvedValue(true);
+      repository.deleteQuack.mockResolvedValue('deleted');
 
       await new QuacksService(repository).deleteQuack(moderator, 'q1');
 
@@ -265,21 +264,38 @@ describe('QuacksService', () => {
     it('reports a quack deleted between the check and the delete', async () => {
       const repository = mock<QuackRepository>();
       repository.getQuackAuthorId.mockResolvedValue('u1');
-      repository.deleteQuack.mockResolvedValue(false);
+      repository.deleteQuack.mockResolvedValue('not-found');
 
       await expect(
         new QuacksService(repository).deleteQuack(viewer, 'q1'),
       ).rejects.toBeInstanceOf(QuackNotFoundError);
     });
 
-    it('refuses a quack that has replies, so the replies stay', async () => {
+    it.each([
+      ['author', viewer, 'u1'],
+      ['moderator', moderator, 'u2'],
+    ] as const)(
+      'lets the %s delete a quack with replies, which keeps it as a placeholder',
+      async (_who, user, authorId) => {
+        const repository = mock<QuackRepository>();
+        repository.getQuackAuthorId.mockResolvedValue(authorId);
+        repository.deleteQuack.mockResolvedValue('wiped');
+
+        await expect(
+          new QuacksService(repository).deleteQuack(user, 'q1'),
+        ).resolves.toBeUndefined();
+        expect(repository.deleteQuack).toHaveBeenCalledWith('q1', authorId);
+      },
+    );
+
+    it('refuses a placeholder: it has no author, so it is already deleted', async () => {
       const repository = mock<QuackRepository>();
-      repository.getQuackAuthorId.mockResolvedValue('u1');
-      repository.deleteQuack.mockRejectedValue(new QuackHasRepliesError('q1'));
+      repository.getQuackAuthorId.mockResolvedValue(null);
 
       await expect(
-        new QuacksService(repository).deleteQuack(viewer, 'q1'),
-      ).rejects.toBeInstanceOf(QuackHasRepliesError);
+        new QuacksService(repository).deleteQuack(moderator, 'q1'),
+      ).rejects.toBeInstanceOf(QuackNotFoundError);
+      expect(repository.deleteQuack).not.toHaveBeenCalled();
     });
   });
 

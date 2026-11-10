@@ -4,7 +4,7 @@ import { act, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { quackKeys } from "@/features/quack/api/quackKeys"
-import type { Quack, QuackPoll } from "@/features/quack/api/quackSchemas"
+import type { LiveQuack, Quack, QuackPoll } from "@/features/quack/api/quackSchemas"
 import { useVote, withMyVote } from "@/features/quack/hooks/useVote"
 
 const { put } = vi.hoisted(() => ({ put: vi.fn() }))
@@ -22,8 +22,9 @@ const poll = (votes: [number, number, number], myOptionId: string | null = null)
   myOptionId,
 })
 
-const quackWith = (id: string, quackPoll: QuackPoll): Quack => ({
+const quackWith = (id: string, quackPoll: QuackPoll): LiveQuack => ({
   id,
+  deleted: false,
   text: "Where do we go for lunch?",
   mood: null,
   userId: "u1",

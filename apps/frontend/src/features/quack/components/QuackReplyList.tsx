@@ -4,15 +4,18 @@ import { Loader2, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
+import { deleteAsFor, type Viewer } from "@/features/quack/api/deleteAs"
 import { repliesQueryOptions } from "@/features/quack/api/repliesQueryOptions"
 import { QuackReplyItem } from "@/features/quack/components/QuackReplyItem"
 
 type QuackReplyListProps = {
   quackId: string
+  /** The signed-in user: their replies get a delete action, every reply for a moderator. */
+  viewer?: Viewer
 }
 
 /** A quack's replies, oldest first, loaded when the replies are opened. */
-export function QuackReplyList({ quackId }: QuackReplyListProps) {
+export function QuackReplyList({ quackId, viewer = {} }: QuackReplyListProps) {
   const replies = useQuery(repliesQueryOptions(quackId))
 
   if (replies.isPending) {
@@ -56,6 +59,7 @@ export function QuackReplyList({ quackId }: QuackReplyListProps) {
         <QuackReplyItem
           key={reply.id}
           reply={reply}
+          deleteAs={deleteAsFor(reply.userId, viewer)}
         />
       ))}
     </ul>

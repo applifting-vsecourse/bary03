@@ -51,42 +51,74 @@ export class QuackResponseDto {
   @ApiProperty()
   id!: string;
 
-  @ApiProperty()
-  text!: string;
+  @ApiProperty({
+    description:
+      'True for a deleted quack kept for its replies ("This quack was deleted"). It carries no text, mood, author or poll: those were erased, not hidden.',
+  })
+  deleted!: boolean;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'null when deleted',
+  })
+  text!: string | null;
 
   @ApiProperty({ enum: QUACK_MOODS, nullable: true })
   mood!: QuackMood | null;
 
-  @ApiProperty()
-  userId!: string;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'null when deleted',
+  })
+  userId!: string | null;
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
 
-  @ApiProperty({ type: QuackUserDto })
-  user!: QuackUserDto;
+  @ApiProperty({
+    type: QuackUserDto,
+    nullable: true,
+    description: 'null when deleted',
+  })
+  user!: QuackUserDto | null;
 
   @ApiProperty({
     type: PollResponseDto,
     nullable: true,
     description:
-      'The answers and their votes; null when the quack is not a poll',
+      'The answers and their votes; null when the quack is not a poll or was deleted',
   })
   poll!: PollResponseDto | null;
 
   @ApiProperty({ description: 'How many replies the quack has' })
   replyCount!: number;
 
-  // Nothing deletes a quack into a placeholder yet (story.md: replies), so a
-  // quack without text or author is a bug here, not something to send.
   static fromDomain(quack: Quack): QuackResponseDto {
-    if (!quack.user || quack.text === null || quack.userId === null) {
+    // A placeholder (docs/adr/0001) is built from the fields it may show
+    // only, so nothing of the deleted quack can slip through.
+    if (quack.userId === null) {
+      return {
+        id: quack.id,
+        deleted: true,
+        text: null,
+        mood: null,
+        userId: null,
+        createdAt: quack.createdAt,
+        user: null,
+        poll: null,
+        replyCount: quack.replyCount,
+      };
+    }
+    if (!quack.user || quack.text === null) {
       throw new Error(
         `QuackResponseDto.fromDomain expected quack ${quack.id} to have text and a loaded author`,
       );
     }
     return {
       id: quack.id,
+      deleted: false,
       text: quack.text,
       mood: quack.mood,
       userId: quack.userId,

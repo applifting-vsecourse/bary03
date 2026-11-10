@@ -21,14 +21,22 @@ const reply = (id: string, text: string, name: string, username: string, created
 
 const respondWith = (body: unknown) => ({ json: () => Promise.resolve(body) })
 
-const renderList = () =>
+const renderList = (viewer?: { id?: string; role?: string }) =>
   render(
     <QueryClientProvider
       client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
     >
-      <QuackReplyList quackId="q1" />
+      <QuackReplyList
+        quackId="q1"
+        viewer={viewer}
+      />
     </QueryClientProvider>,
   )
+
+const twoReplies = () => [
+  reply("r1", "mine", "Caffeinated Duck", "CaffeinatedDuck", "2026-11-09T10:00:00"),
+  reply("r2", "not mine", "The Bread Critic", "BreadCritic", "2026-11-09T11:20:00"),
+]
 
 describe("QuackReplyList", () => {
   beforeEach(() => {
@@ -95,5 +103,34 @@ describe("QuackReplyList", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }))
 
     expect(await screen.findByText("No replies yet. Be the first to reply.")).toBeInTheDocument()
+  })
+
+  it("offers to delete only my own replies", async () => {
+    get.mockReturnValue(respondWith(twoReplies()))
+    renderList({ id: "user-r1", role: "user" })
+
+    const items = within(await screen.findByRole("list", { name: "Replies" })).getAllByRole(
+      "listitem",
+    )
+    // r1 is mine, r2 someone else's
+    expect(
+      items.map((item) => within(item).queryByRole("button", { name: "Delete reply" }) !== null),
+    ).toEqual([true, false])
+  })
+
+  it("offers a moderator to delete every reply", async () => {
+    get.mockReturnValue(respondWith(twoReplies()))
+    renderList({ id: "mod", role: "admin" })
+
+    await screen.findByRole("list", { name: "Replies" })
+    expect(screen.getAllByRole("button", { name: "Delete reply" })).toHaveLength(2)
+  })
+
+  it("offers nothing to delete when nobody is signed in", async () => {
+    get.mockReturnValue(respondWith(twoReplies()))
+    renderList()
+
+    await screen.findByRole("list", { name: "Replies" })
+    expect(screen.queryByRole("button", { name: "Delete reply" })).not.toBeInTheDocument()
   })
 })

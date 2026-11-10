@@ -86,8 +86,10 @@ export class QuacksService {
   }
 
   /**
-   * Deletes a quack for its author or for a moderator. The user and their
-   * role are the session's, never anything the caller sends.
+   * Deletes a quack for its author or for a moderator; one with replies is
+   * kept as a placeholder instead. The user and their role are the
+   * session's, never anything the caller sends. A placeholder has no author,
+   * so nobody can delete it: it goes when its last reply does.
    */
   async deleteQuack(user: Identity, quackId: string): Promise<void> {
     const authorId = await this.quackRepository.getQuackAuthorId(quackId);
@@ -99,15 +101,16 @@ export class QuacksService {
     if (!isAuthor && !isModerator) {
       throw new NotQuackAuthorError(quackId, user.id);
     }
-    // The repository matches the author again in the delete itself, so the
+    // The repository matches the author again under a row lock, so the
     // quack can't change hands (or vanish) between the check and the delete.
     // Everyone but a moderator must be that author themselves; a moderator
-    // deletes the quack of the author just checked.
-    const deleted = await this.quackRepository.deleteQuack(
+    // deletes the quack of the author just checked. A quack with replies is
+    // wiped rather than deleted, the same for both (docs/adr/0001).
+    const result = await this.quackRepository.deleteQuack(
       quackId,
       isModerator ? authorId : user.id,
     );
-    if (!deleted) {
+    if (result === 'not-found') {
       throw new QuackNotFoundError(quackId);
     }
   }

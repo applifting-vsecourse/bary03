@@ -4,11 +4,9 @@ import { Loader2, RefreshCw } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 
+import { deleteAsFor as deleteAsOf, type QuackDeleteAs } from "@/features/quack/api/deleteAs"
 import type { Quack } from "@/features/quack/api/quackSchemas"
-import { QuackItem, type QuackDeleteAs } from "@/features/quack/components/QuackItem"
-
-// The role that may delete anyone's quack; the server enforces the same rule.
-const MODERATOR_ROLE = "admin"
+import { QuackItem } from "@/features/quack/components/QuackItem"
 
 type QuackListProps = {
   quacks: Quack[]
@@ -35,10 +33,11 @@ export function QuackList({
   viewerId,
   viewerRole,
 }: QuackListProps) {
+  const viewer = { id: viewerId, role: viewerRole }
   const deleteAsFor = (quack: Quack): QuackDeleteAs | undefined => {
-    if (viewerId !== undefined && quack.userId === viewerId) return "author"
-    if (viewerRole === MODERATOR_ROLE) return "moderator"
-    return undefined
+    // A placeholder has no author, and goes by itself with its last reply.
+    if (quack.deleted) return undefined
+    return deleteAsOf(quack.userId, viewer)
   }
 
   return (
@@ -83,6 +82,7 @@ export function QuackList({
           key={quack.id}
           quack={quack}
           deleteAs={deleteAsFor(quack)}
+          viewer={viewer}
           canReply
         />
       ))}

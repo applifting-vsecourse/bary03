@@ -20,8 +20,9 @@ export const quackPollSchema = z.object({
   myOptionId: z.string().nullable(),
 })
 
-export const quackSchema = z.object({
+export const liveQuackSchema = z.object({
   id: z.string(),
+  deleted: z.literal(false),
   text: z.string(),
   mood: quackMoodSchema.nullable(),
   userId: z.string(),
@@ -31,6 +32,22 @@ export const quackSchema = z.object({
   poll: quackPollSchema.nullable(),
   replyCount: z.number(),
 })
+
+// A deleted quack kept for its replies (docs/adr/0001). Its text, mood, poll
+// and author were erased on the server; the schema refuses any that come back.
+export const deletedQuackSchema = z.object({
+  id: z.string(),
+  deleted: z.literal(true),
+  text: z.null(),
+  mood: z.null(),
+  userId: z.null(),
+  createdAt: z.coerce.date(),
+  user: z.null(),
+  poll: z.null(),
+  replyCount: z.number(),
+})
+
+export const quackSchema = z.discriminatedUnion("deleted", [liveQuackSchema, deletedQuackSchema])
 
 // A quack posted under another quack: text only, one level deep.
 export const replySchema = z.object({
@@ -50,6 +67,10 @@ export const repliesSchema = z.array(replySchema)
 export type QuackMood = z.infer<typeof quackMoodSchema>
 
 export type QuackPoll = z.infer<typeof quackPollSchema>
+
+export type LiveQuack = z.infer<typeof liveQuackSchema>
+
+export type DeletedQuack = z.infer<typeof deletedQuackSchema>
 
 export type Quack = z.infer<typeof quackSchema>
 

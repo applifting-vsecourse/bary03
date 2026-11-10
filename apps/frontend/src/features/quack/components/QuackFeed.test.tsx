@@ -12,6 +12,7 @@ vi.mock("@/lib/api-client", () => ({ api: { get } }))
 
 const quack = (id: string, text: string, userId = "u1") => ({
   id,
+  deleted: false,
   text,
   mood: null,
   userId,

@@ -8,7 +8,6 @@ import {
 import {
   Quack,
   QuackAuthor,
-  QuackHasRepliesError,
   QuackMood,
   QuackPoll,
   Reply,
@@ -114,6 +113,19 @@ export type CreateReplyResult =
   | { status: 'parent-not-found' }
   | { status: 'parent-is-reply' }
   | { status: 'parent-deleted' };
+
+/** What deleting a quack did: removed it, kept it as a placeholder, or found nothing to delete. */
+export type DeleteQuackResult = 'deleted' | 'wiped' | 'not-found';
+
+/** Locks the quack's row until the transaction ends; null when it doesn't exist. */
+const lockForUpdate = async (
+  tx: Prisma.TransactionClient,
+  quackId: string,
+): Promise<{ userId: string | null } | undefined> => {
+  const [row] = await tx.$queryRaw<{ userId: string | null }[]>`
+    SELECT "userId" FROM "quack" WHERE "id" = ${quackId} FOR UPDATE`;
+  return row;
+};
 
 // Prisma passes `contains` straight into ILIKE without escaping, so % and _
 // would act as wildcards. Postgres' default LIKE escape character is \.
@@ -251,7 +263,7 @@ export class QuackRepository {
     });
   }
 
-  /** Who wrote the quack, or null when it doesn't exist. */
+  /** Who wrote the quack, or null when it doesn't exist or is a placeholder. */
   async getQuackAuthorId(quackId: string): Promise<string | null> {
     const quack = await this.prisma.quack.findUnique({
       where: { id: quackId },
@@ -261,31 +273,68 @@ export class QuackRepository {
   }
 
   /**
-   * Deletes the quack only if `authorId` wrote it; its poll answers and votes
-   * go with it (cascade). Matching on both columns in the one statement means
-   * the ownership check can't be raced, whatever the caller checked before.
-   * For a moderator, `authorId` is the author they were allowed to act on.
-   * Returns whether a quack was deleted. A reply is deleted the same way.
+   * Deletes the quack only if `authorId` wrote it (for a moderator, the
+   * author they were allowed to act on), as one transaction:
    *
-   * Throws QuackHasRepliesError when the quack has replies: the parentId
-   * foreign key (onDelete: Restrict) refuses, so replies can't go with it,
-   * even when one was posted a moment before.
+   * - A quack without replies is deleted; its poll answers and votes go with
+   *   it (cascade).
+   * - A quack with replies is wiped instead (docs/adr/0001): its poll answers
+   *   and votes are deleted and its text, mood and author erased. The row
+   *   stays as a placeholder, so the replies keep their parent.
+   * - A reply is deleted, and if that leaves its placeholder parent with no
+   *   replies, the placeholder goes too.
+   *
+   * Locks run parent first, then the row, the same order a reply's creation
+   * takes (FOR SHARE on its parent), so these can't deadlock each other.
+   * Under the lock, the author check and the reply count can't be raced: a
+   * reply being posted either finishes first and is counted, or waits and
+   * then finds the quack wiped. Two last replies deleted at once take turns,
+   * so the second still sees the placeholder empty.
+   *
+   * Returns 'not-found' when there is no such quack by that author, which
+   * includes a placeholder (it has no author).
    */
-  async deleteQuack(quackId: string, authorId: string): Promise<boolean> {
-    try {
-      const { count } = await this.prisma.quack.deleteMany({
-        where: { id: quackId, userId: authorId },
+  async deleteQuack(
+    quackId: string,
+    authorId: string,
+  ): Promise<DeleteQuackResult> {
+    return this.prisma.$transaction(async (tx) => {
+      // parentId never changes, so it is safe to read before locking.
+      const target = await tx.quack.findUnique({
+        where: { id: quackId },
+        select: { parentId: true },
       });
-      return count > 0;
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2003'
-      ) {
-        throw new QuackHasRepliesError(quackId);
+      if (!target) return 'not-found';
+      if (target.parentId !== null) {
+        await lockForUpdate(tx, target.parentId);
       }
-      throw error;
-    }
+      const locked = await lockForUpdate(tx, quackId);
+      if (!locked || locked.userId !== authorId) return 'not-found';
+
+      if (target.parentId !== null) {
+        await tx.quack.delete({ where: { id: quackId } });
+        await tx.quack.deleteMany({
+          where: { id: target.parentId, userId: null, replies: { none: {} } },
+        });
+        return 'deleted';
+      }
+
+      const replyCount = await tx.quack.count({ where: { parentId: quackId } });
+      if (replyCount === 0) {
+        await tx.quack.delete({ where: { id: quackId } });
+        return 'deleted';
+      }
+      // Votes go with their answers (cascade).
+      await tx.pollOption.deleteMany({ where: { quackId } });
+      // One statement on purpose: the quack_placeholder_shape CHECK sees each
+      // statement's row, and Prisma runs a relation disconnect as a second
+      // UPDATE, so text gone but author still set would be refused.
+      await tx.$executeRaw`
+        UPDATE "quack"
+        SET "text" = NULL, "mood" = NULL, "userId" = NULL, "updatedAt" = now()
+        WHERE "id" = ${quackId}`;
+      return 'wiped';
+    });
   }
 
   /** The ids of a poll's answers; empty when the quack doesn't exist or isn't a poll. */

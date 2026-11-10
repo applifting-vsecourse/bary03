@@ -4,7 +4,6 @@ import {
   NotQuackAuthorError,
   PollNotFoundError,
   QuackDeletedError,
-  QuackHasRepliesError,
   QuackNotFoundError,
 } from '@/modules/quack/domain/quack';
 import { QuacksService } from '@/modules/quack/services/quacks.service';
@@ -101,18 +100,20 @@ export class QuacksController {
   @ApiOperation({
     summary: 'Delete a quack: your own, or any as a moderator',
     description:
-      'The author may delete their quack, and a user with the admin role (moderator) may delete any quack. The user and role come from the session. A poll goes with its answers and votes.',
+      'The author may delete their quack, and a user with the admin role (moderator) may delete any quack. The user and role come from the session. A poll goes with its answers and votes. A quack with replies is wiped instead: its text, mood, poll and author are erased and it stays as a placeholder ("This quack was deleted") so the replies keep their place. Deleting the last reply under a placeholder removes the placeholder too.',
   })
-  @ApiResponse({ status: 204, description: 'Deleted' })
+  @ApiResponse({
+    status: 204,
+    description: 'Deleted, or wiped to a placeholder',
+  })
   @ApiResponse({ status: 401, description: 'Not signed in' })
   @ApiResponse({
     status: 403,
     description: 'Someone else wrote this quack and you are not a moderator',
   })
-  @ApiResponse({ status: 404, description: 'No such quack' })
   @ApiResponse({
-    status: 409,
-    description: 'The quack has replies, so it cannot be deleted yet',
+    status: 404,
+    description: 'No such quack, or it was already deleted',
   })
   async delete(
     @User() user: Identity,
@@ -126,11 +127,6 @@ export class QuacksController {
       }
       if (error instanceof NotQuackAuthorError) {
         throw new ForbiddenException('You can only delete your own quacks');
-      }
-      if (error instanceof QuackHasRepliesError) {
-        throw new ConflictException(
-          "This quack has replies, so it can't be deleted yet.",
-        );
       }
       throw error;
     }

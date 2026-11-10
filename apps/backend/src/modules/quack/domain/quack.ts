@@ -94,13 +94,3 @@ export class QuackDeletedError extends Error {
     super(`Quack ${quackId} was deleted`);
   }
 }
-
-/**
- * The quack has replies, so it can't be deleted outright. Until deleting
- * wipes such a quack instead (story.md, docs/adr/0001), the delete is refused.
- */
-export class QuackHasRepliesError extends Error {
-  constructor(quackId: string) {
-    super(`Quack ${quackId} has replies`);
-  }
-}

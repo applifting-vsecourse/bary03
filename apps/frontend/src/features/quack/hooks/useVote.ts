@@ -42,7 +42,8 @@ export function withMyVote(poll: QuackPoll, optionId: string): QuackPoll {
 /** Puts `poll` on this quack in every cached feed list: the plain feed and any search. */
 const showPoll = (queryClient: QueryClient, quackId: string, poll: QuackPoll) => {
   queryClient.setQueriesData<Quack[]>({ queryKey: quackKeys.lists() }, (quacks) =>
-    quacks?.map((quack) => (quack.id === quackId ? { ...quack, poll } : quack)),
+    // a deleted quack has no poll to vote in
+    quacks?.map((quack) => (quack.id === quackId && !quack.deleted ? { ...quack, poll } : quack)),
   )
 }
 
