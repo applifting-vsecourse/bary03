@@ -202,6 +202,24 @@ export class QuackRepository {
   }
 
   /**
+   * The quack's replies, oldest first (id breaks a tie, so the order never
+   * shuffles between reads), or null when the quack doesn't exist. A reply
+   * has no replies, so asking for a reply's gives an empty list.
+   */
+  async getReplies(quackId: string): Promise<Reply[] | null> {
+    const quack = await this.prisma.quack.findUnique({
+      where: { id: quackId },
+      select: {
+        replies: {
+          include: { user: true },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        },
+      },
+    });
+    return quack ? quack.replies.map(mapPrismaReplyToDomain) : null;
+  }
+
+  /**
    * Posts a reply under `parentId`, if that quack exists, is not itself a
    * reply and has not been deleted. FOR SHARE locks the parent until the reply
    * is written: a delete or wipe of the parent waits for the reply, or the

@@ -4,6 +4,7 @@ import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 import { QuackReplyForm } from "@/features/quack/components/QuackReplyForm"
+import { QuackReplyList } from "@/features/quack/components/QuackReplyList"
 
 /** "Reply" while there are none, then "1 reply", "2 replies"… */
 export const replyCountLabel = (count: number): string => {
@@ -16,7 +17,7 @@ type QuackRepliesProps = {
   replyCount: number
 }
 
-/** The replies control under a quack; opening it shows the reply box. */
+/** The replies control under a quack; opening it shows the replies and the reply box. */
 export function QuackReplies({ quackId, replyCount }: QuackRepliesProps) {
   const [isOpen, setIsOpen] = useState(false)
   const panelId = useId()
@@ -38,8 +39,9 @@ export function QuackReplies({ quackId, replyCount }: QuackRepliesProps) {
       {isOpen ? (
         <div
           id={panelId}
-          className="border-l border-border pl-4"
+          className="flex flex-col gap-4 border-l border-border pl-4"
         >
+          <QuackReplyList quackId={quackId} />
           <QuackReplyForm quackId={quackId} />
         </div>
       ) : null}

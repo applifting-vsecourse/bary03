@@ -10,9 +10,13 @@ export function useAddReply() {
 
   return useMutation({
     mutationFn: addReply,
-    onSuccess: async () => {
-      // Refresh the feed so the quack's reply count goes up.
-      await queryClient.invalidateQueries({ queryKey: quackKeys.lists() })
+    onSuccess: async (_reply, { quackId }) => {
+      // Refresh the replies so the new one shows at the bottom, and the feed
+      // so the quack's reply count goes up.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: quackKeys.replies(quackId) }),
+        queryClient.invalidateQueries({ queryKey: quackKeys.lists() }),
+      ])
     },
   })
 }

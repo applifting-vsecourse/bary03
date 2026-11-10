@@ -45,6 +45,8 @@ export const replySchema = z.object({
 
 export const quacksSchema = z.array(quackSchema)
 
+export const repliesSchema = z.array(replySchema)
+
 export type QuackMood = z.infer<typeof quackMoodSchema>
 
 export type QuackPoll = z.infer<typeof quackPollSchema>

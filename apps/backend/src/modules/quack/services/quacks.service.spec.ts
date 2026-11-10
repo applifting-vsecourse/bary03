@@ -283,6 +283,28 @@ describe('QuacksService', () => {
     });
   });
 
+  describe('getReplies', () => {
+    it("returns the quack's replies from the repository", async () => {
+      const replies = [aReply(), aReply({ id: 'r2' })];
+      const repository = mock<QuackRepository>();
+      repository.getReplies.mockResolvedValue(replies);
+
+      await expect(
+        new QuacksService(repository).getReplies('q1'),
+      ).resolves.toEqual(replies);
+      expect(repository.getReplies).toHaveBeenCalledWith('q1');
+    });
+
+    it('refuses a quack that does not exist', async () => {
+      const repository = mock<QuackRepository>();
+      repository.getReplies.mockResolvedValue(null);
+
+      await expect(
+        new QuacksService(repository).getReplies('missing'),
+      ).rejects.toBeInstanceOf(QuackNotFoundError);
+    });
+  });
+
   describe('createReply', () => {
     it('posts a reply owned by the signed-in user under the quack', async () => {
       const reply = aReply();

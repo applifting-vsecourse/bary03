@@ -1,7 +1,7 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { formatDate } from "@/lib/date"
 
 import type { Quack } from "@/features/quack/api/quackSchemas"
+import { AuthorAvatar } from "@/features/quack/components/AuthorAvatar"
 import { QuackDeleteButton } from "@/features/quack/components/QuackDeleteButton"
 import { QuackMoodLabel } from "@/features/quack/components/QuackMoodLabel"
 import { QuackPoll } from "@/features/quack/components/QuackPoll"
@@ -23,18 +23,12 @@ type QuackItemProps = {
 export function QuackItem({ quack, deleteAs, canReply }: QuackItemProps) {
   const { name, username } = quack.user
 
-  const initials = name
-    .split(" ")
-    .map((word) => word[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase()
-
   return (
     <article className="flex w-full gap-4 border-b border-border pt-2 pb-4 last:border-b-0">
-      <Avatar className="size-12">
-        <AvatarFallback>{initials}</AvatarFallback>
-      </Avatar>
+      <AuthorAvatar
+        name={name}
+        className="size-12"
+      />
 
       <div className="flex flex-1 flex-col gap-1">
         <div className="flex flex-wrap items-baseline gap-2">

@@ -136,6 +136,29 @@ export class QuacksController {
     }
   }
 
+  @Get(':quackId/replies')
+  @ApiOperation({
+    summary: "List a quack's replies, oldest first",
+    description:
+      'A reply has no replies of its own, so asking for those gives an empty list.',
+  })
+  @ApiResponse({ status: 200, type: [ReplyResponseDto] })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({ status: 404, description: 'No such quack' })
+  async listReplies(
+    @Param('quackId') quackId: string,
+  ): Promise<ReplyResponseDto[]> {
+    try {
+      const replies = await this.quacksService.getReplies(quackId);
+      return replies.map(ReplyResponseDto.fromDomain);
+    } catch (error) {
+      if (error instanceof QuackNotFoundError) {
+        throw new NotFoundException('This quack does not exist');
+      }
+      throw error;
+    }
+  }
+
   @Post(':quackId/replies')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({

@@ -50,6 +50,15 @@ export class QuacksService {
     });
   }
 
+  /** The quack's replies, oldest first. */
+  async getReplies(quackId: string): Promise<Reply[]> {
+    const replies = await this.quackRepository.getReplies(quackId);
+    if (replies === null) {
+      throw new QuackNotFoundError(quackId);
+    }
+    return replies;
+  }
+
   /**
    * Posts a reply under a top-level quack that hasn't been deleted. The
    * author is the session's user, never anything the caller sends.
