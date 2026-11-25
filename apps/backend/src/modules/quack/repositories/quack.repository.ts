@@ -114,6 +114,12 @@ export type CreateReplyResult =
   | { status: 'parent-is-reply' }
   | { status: 'parent-deleted' };
 
+/**
+ * What came of liking or taking back a like. 'not-found' covers a quack that
+ * doesn't exist and a placeholder, which keeps no likes (docs/adr/0002).
+ */
+export type LikeResult = 'done' | 'not-found';
+
 /** What deleting a quack did: removed it, kept it as a placeholder, or found nothing to delete. */
 export type DeleteQuackResult = 'deleted' | 'wiped' | 'not-found';
 
@@ -392,5 +398,23 @@ export class QuackRepository {
         WHERE "poll_vote"."clientId" <> EXCLUDED."clientId"
            OR "poll_vote"."clientSeq" < EXCLUDED."clientSeq"
     `;
+  }
+
+  /**
+   * Likes the quack as `userId`; liking it again changes nothing
+   * (docs/adr/0002). Not implemented yet.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async likeQuack(quackId: string, userId: string): Promise<LikeResult> {
+    throw new Error('not implemented');
+  }
+
+  /**
+   * Takes back `userId`'s like; taking back a like never given changes
+   * nothing (docs/adr/0002). Not implemented yet.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async unlikeQuack(quackId: string, userId: string): Promise<LikeResult> {
+    throw new Error('not implemented');
   }
 }

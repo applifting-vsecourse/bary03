@@ -12,6 +12,7 @@ const placeholder = {
   user: null,
   poll: null,
   replyCount: 2,
+  likes: null,
 }
 
 describe("quackSchema", () => {

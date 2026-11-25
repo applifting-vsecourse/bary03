@@ -12,6 +12,11 @@ vi.mock("@/features/quack/hooks/useVote", () => ({
   useVote: () => ({ vote: vi.fn(), isError: false }),
 }))
 
+// Every quack gets a like button, which likes through this hook; stub it.
+vi.mock("@/features/quack/hooks/useLike", () => ({
+  useLike: () => ({ setLiked: vi.fn(), isPending: false, isError: false }),
+}))
+
 // Opening replies loads them; these tests only look at what's around the
 // list, so the request never answers.
 vi.mock("@/lib/api-client", () => ({
@@ -28,6 +33,8 @@ const quack = (overrides: Partial<LiveQuack> = {}): LiveQuack => ({
   user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
   poll: null,
   replyCount: 0,
+  // Spread, so it type-checks before the schema carries likes (docs/adr/0002).
+  ...{ likes: { count: 0, likedByMe: false } },
   ...overrides,
 })
 
@@ -192,6 +199,8 @@ describe("QuackList with a deleted quack", () => {
     user: null,
     poll: null,
     replyCount: 2,
+    // Spread, so it type-checks before the schema carries likes (docs/adr/0002).
+    ...{ likes: null },
   }
 
   const renderList = (viewerRole?: string) =>

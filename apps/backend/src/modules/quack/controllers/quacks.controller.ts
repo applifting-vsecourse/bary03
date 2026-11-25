@@ -235,4 +235,40 @@ export class QuacksController {
       throw error;
     }
   }
+
+  @Put(':quackId/like')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Like a quack or a reply',
+    description:
+      'Likes it as the signed-in user; liking it again changes nothing. Not implemented yet.',
+  })
+  @ApiResponse({ status: 204, description: 'Liked' })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({
+    status: 404,
+    description: 'No such quack, or it was deleted',
+  })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  like(@User() user: Identity, @Param('quackId') quackId: string): void {
+    throw new Error('not implemented');
+  }
+
+  @Delete(':quackId/like')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Take back your like',
+    description:
+      "Removes the signed-in user's like, never anyone else's; taking back a like you never gave changes nothing. Not implemented yet.",
+  })
+  @ApiResponse({ status: 204, description: 'Not liked by you any more' })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({
+    status: 404,
+    description: 'No such quack, or it was deleted',
+  })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  unlike(@User() user: Identity, @Param('quackId') quackId: string): void {
+    throw new Error('not implemented');
+  }
 }

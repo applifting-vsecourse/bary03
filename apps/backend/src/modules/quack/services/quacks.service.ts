@@ -147,4 +147,23 @@ export class QuacksService {
     }
     return poll;
   }
+
+  /**
+   * Likes the quack as the session's user. Liking it again changes nothing;
+   * a missing quack or a placeholder is QuackNotFoundError. Not implemented yet.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async likeQuack(user: Identity, quackId: string): Promise<void> {
+    throw new Error('not implemented');
+  }
+
+  /**
+   * Takes back the session user's like, and only theirs. Taking back a like
+   * never given changes nothing; a missing quack or a placeholder is
+   * QuackNotFoundError. Not implemented yet.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async unlikeQuack(user: Identity, quackId: string): Promise<void> {
+    throw new Error('not implemented');
+  }
 }

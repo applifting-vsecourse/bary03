@@ -22,6 +22,8 @@ const quack = (id: string): LiveQuack => ({
   user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
   poll: null,
   replyCount: 0,
+  // Spread, so it type-checks before the schema carries likes (docs/adr/0002).
+  ...{ likes: { count: 0, likedByMe: false } },
 })
 
 const setup = (moderatedAuthorName?: string, replyCount = 0) => {
@@ -203,6 +205,8 @@ describe("QuackDeleteButton on a reply", () => {
     userId: "u1",
     createdAt: new Date("2026-01-01T12:05:00Z"),
     user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
+    // Spread, so it type-checks before the schema carries likes (docs/adr/0002).
+    ...{ likes: { count: 0, likedByMe: false } },
   })
 
   const placeholder = (replyCount: number): DeletedQuack => ({
@@ -215,6 +219,8 @@ describe("QuackDeleteButton on a reply", () => {
     user: null,
     poll: null,
     replyCount,
+    // Spread, so it type-checks before the schema carries likes (docs/adr/0002).
+    ...{ likes: null },
   })
 
   const setupReply = (parent: Quack, moderatedAuthorName?: string) => {
