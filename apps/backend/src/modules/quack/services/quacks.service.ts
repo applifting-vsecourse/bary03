@@ -50,9 +50,11 @@ export class QuacksService {
     });
   }
 
-  /** The quack's replies, oldest first. */
-  async getReplies(quackId: string): Promise<Reply[]> {
-    const replies = await this.quackRepository.getReplies(quackId);
+  /** The quack's replies, oldest first, with whether `viewer` liked each. */
+  async getReplies(quackId: string, viewer?: Identity): Promise<Reply[]> {
+    const replies = viewer
+      ? await this.quackRepository.getReplies(quackId, viewer.id)
+      : await this.quackRepository.getReplies(quackId);
     if (replies === null) {
       throw new QuackNotFoundError(quackId);
     }
@@ -146,5 +148,29 @@ export class QuacksService {
       throw new PollNotFoundError(quackId);
     }
     return poll;
+  }
+
+  /**
+   * Likes the quack as the session's user, whoever wrote it. Liking it again
+   * changes nothing; a missing quack or a placeholder is QuackNotFoundError.
+   */
+  async likeQuack(user: Identity, quackId: string): Promise<void> {
+    // the liker is taken from the session, never from the request
+    const result = await this.quackRepository.likeQuack(quackId, user.id);
+    if (result === 'not-found') {
+      throw new QuackNotFoundError(quackId);
+    }
+  }
+
+  /**
+   * Takes back the session user's like, and only theirs. Taking back a like
+   * never given changes nothing; a missing quack or a placeholder is
+   * QuackNotFoundError. A moderator gets no say over other people's likes.
+   */
+  async unlikeQuack(user: Identity, quackId: string): Promise<void> {
+    const result = await this.quackRepository.unlikeQuack(quackId, user.id);
+    if (result === 'not-found') {
+      throw new QuackNotFoundError(quackId);
+    }
   }
 }

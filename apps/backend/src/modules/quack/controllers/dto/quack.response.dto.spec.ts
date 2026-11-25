@@ -11,6 +11,8 @@ const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
   user: { id: 'u1', name: 'Deep Duck Thoughts', username: 'DeepDuckThoughts' },
   poll: null,
   replyCount: 2,
+  // Spread, so it type-checks before the domain carries likes (docs/adr/0002).
+  ...{ likes: { count: 0, likedByMe: false } },
   ...overrides,
 });
 
@@ -41,6 +43,8 @@ describe('QuackResponseDto', () => {
       user: null,
       poll: null,
       replyCount: 2,
+      // a placeholder keeps no likes, whatever the domain object says
+      likes: null,
     });
     expect(JSON.stringify(dto)).not.toMatch(/leftover|Deep Duck|u1/);
   });

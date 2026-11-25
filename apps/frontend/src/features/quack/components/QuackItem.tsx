@@ -4,6 +4,7 @@ import type { QuackDeleteAs, Viewer } from "@/features/quack/api/deleteAs"
 import type { DeletedQuack, Quack } from "@/features/quack/api/quackSchemas"
 import { AuthorAvatar } from "@/features/quack/components/AuthorAvatar"
 import { QuackDeleteButton } from "@/features/quack/components/QuackDeleteButton"
+import { QuackLikeButton } from "@/features/quack/components/QuackLikeButton"
 import { QuackMoodLabel } from "@/features/quack/components/QuackMoodLabel"
 import { QuackPoll } from "@/features/quack/components/QuackPoll"
 import { QuackReplies } from "@/features/quack/components/QuackReplies"
@@ -18,9 +19,17 @@ type QuackItemProps = {
   canReply?: boolean
   /** The signed-in user: decides which replies get a delete action. */
   viewer?: Viewer
+  /** Set to false for a static preview: no like button, since nothing there can be liked. */
+  canLike?: boolean
 }
 
-export function QuackItem({ quack, deleteAs, canReply, viewer = {} }: QuackItemProps) {
+export function QuackItem({
+  quack,
+  deleteAs,
+  canReply,
+  viewer = {},
+  canLike = true,
+}: QuackItemProps) {
   if (quack.deleted) {
     return (
       <DeletedQuackItem
@@ -71,6 +80,12 @@ export function QuackItem({ quack, deleteAs, canReply, viewer = {} }: QuackItemP
             quackId={quack.id}
             poll={quack.poll}
             className="mt-2"
+          />
+        ) : null}
+        {canLike ? (
+          <QuackLikeButton
+            quackId={quack.id}
+            likes={quack.likes}
           />
         ) : null}
         {canReply ? (

@@ -23,6 +23,13 @@ export type QuackPoll = {
   myOptionId: string | null;
 };
 
+/** A quack's likes as one viewer sees them; counted from the like rows on every read (docs/adr/0002). */
+export type QuackLikes = {
+  count: number;
+  /** Whether the person viewing the quack liked it. */
+  likedByMe: boolean;
+};
+
 export type Quack = {
   id: string;
   /** null only on a placeholder: a deleted quack kept for its replies. */
@@ -37,6 +44,8 @@ export type Quack = {
   poll: QuackPoll | null;
   /** Counted from the reply rows on every read, never stored. */
   replyCount: number;
+  /** Always zero on a placeholder: its likes are deleted when it is wiped. */
+  likes: QuackLikes;
 };
 
 /** A quack posted under another quack. Replies go one level deep and are text only. */
@@ -48,6 +57,7 @@ export type Reply = {
   userId: string;
   createdAt: Date;
   user: QuackAuthor;
+  likes: QuackLikes;
 };
 
 /** The quack doesn't exist, or it isn't a poll. */

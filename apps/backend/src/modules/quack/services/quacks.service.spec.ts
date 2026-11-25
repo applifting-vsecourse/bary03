@@ -26,6 +26,8 @@ const aQuack = (overrides: Partial<Quack> = {}): Quack => ({
   user: { id: 'u1', name: 'Caffeinated Duck', username: 'CaffeinatedDuck' },
   poll: null,
   replyCount: 0,
+  // Spread, so it type-checks before the domain carries likes (docs/adr/0002).
+  ...{ likes: { count: 0, likedByMe: false } },
   ...overrides,
 });
 
@@ -36,6 +38,8 @@ const aReply = (overrides: Partial<Reply> = {}): Reply => ({
   userId: 'u1',
   createdAt: new Date('2026-01-01T12:05:00Z'),
   user: { id: 'u1', name: 'Caffeinated Duck', username: 'CaffeinatedDuck' },
+  // Spread, so it type-checks before the domain carries likes (docs/adr/0002).
+  ...{ likes: { count: 0, likedByMe: false } },
   ...overrides,
 });
 

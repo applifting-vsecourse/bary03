@@ -142,10 +142,11 @@ export class QuacksController {
   @ApiResponse({ status: 401, description: 'Not signed in' })
   @ApiResponse({ status: 404, description: 'No such quack' })
   async listReplies(
+    @User() user: Identity,
     @Param('quackId') quackId: string,
   ): Promise<ReplyResponseDto[]> {
     try {
-      const replies = await this.quacksService.getReplies(quackId);
+      const replies = await this.quacksService.getReplies(quackId, user);
       return replies.map(ReplyResponseDto.fromDomain);
     } catch (error) {
       if (error instanceof QuackNotFoundError) {
@@ -231,6 +232,60 @@ export class QuacksController {
       }
       if (error instanceof NotAPollOptionError) {
         throw new BadRequestException("That answer isn't part of this poll");
+      }
+      throw error;
+    }
+  }
+
+  @Put(':quackId/like')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Like a quack or a reply',
+    description:
+      'Likes it as the signed-in user; liking it again changes nothing.',
+  })
+  @ApiResponse({ status: 204, description: 'Liked' })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({
+    status: 404,
+    description: 'No such quack, or it was deleted',
+  })
+  async like(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+  ): Promise<void> {
+    try {
+      await this.quacksService.likeQuack(user, quackId);
+    } catch (error) {
+      if (error instanceof QuackNotFoundError) {
+        throw new NotFoundException('This quack does not exist');
+      }
+      throw error;
+    }
+  }
+
+  @Delete(':quackId/like')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Take back your like',
+    description:
+      "Removes the signed-in user's like, never anyone else's; taking back a like you never gave changes nothing.",
+  })
+  @ApiResponse({ status: 204, description: 'Not liked by you any more' })
+  @ApiResponse({ status: 401, description: 'Not signed in' })
+  @ApiResponse({
+    status: 404,
+    description: 'No such quack, or it was deleted',
+  })
+  async unlike(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+  ): Promise<void> {
+    try {
+      await this.quacksService.unlikeQuack(user, quackId);
+    } catch (error) {
+      if (error instanceof QuackNotFoundError) {
+        throw new NotFoundException('This quack does not exist');
       }
       throw error;
     }

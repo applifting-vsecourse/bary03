@@ -17,6 +17,7 @@ const reply = (id: string, text: string, name: string, username: string, created
   userId: `user-${id}`,
   createdAt,
   user: { id: `user-${id}`, name, username },
+  likes: { count: 0, likedByMe: false },
 })
 
 const respondWith = (body: unknown) => ({ json: () => Promise.resolve(body) })

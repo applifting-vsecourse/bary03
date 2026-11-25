@@ -32,6 +32,8 @@ const quackWith = (id: string, quackPoll: QuackPoll): LiveQuack => ({
   user: { id: "u1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
   poll: quackPoll,
   replyCount: 0,
+  // Spread, so it type-checks before the schema carries likes (docs/adr/0002).
+  ...{ likes: { count: 0, likedByMe: false } },
 })
 
 // Each request stays open until the test answers it, so the test decides the

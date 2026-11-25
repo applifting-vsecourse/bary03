@@ -27,6 +27,7 @@ const SAMPLE_QUACKS: LiveQuack[] = [
     user: { id: "sample-user-1", name: "Caffeinated Duck", username: "CaffeinatedDuck" },
     poll: null,
     replyCount: 0,
+    likes: { count: 0, likedByMe: false },
   },
   {
     id: "sample-2",
@@ -38,6 +39,7 @@ const SAMPLE_QUACKS: LiveQuack[] = [
     user: { id: "sample-user-2", name: "Deep Duck Thoughts", username: "DeepDuckThoughts" },
     poll: null,
     replyCount: 0,
+    likes: { count: 0, likedByMe: false },
   },
 ]
 
@@ -103,6 +105,7 @@ function LandingPage() {
               <QuackItem
                 key={quack.id}
                 quack={quack}
+                canLike={false}
               />
             ))}
           </div>

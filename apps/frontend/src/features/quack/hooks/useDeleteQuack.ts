@@ -15,6 +15,7 @@ const placeholderOf = (quack: Quack): DeletedQuack => ({
   user: null,
   poll: null,
   replyCount: quack.replyCount,
+  // and no likes (docs/adr/0002): the server sends `likes: null`
 })
 
 /**

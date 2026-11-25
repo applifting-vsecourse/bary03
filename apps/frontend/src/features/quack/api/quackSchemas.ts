@@ -20,6 +20,12 @@ export const quackPollSchema = z.object({
   myOptionId: z.string().nullable(),
 })
 
+// A quack's or reply's likes as the signed-in user sees them (docs/adr/0002).
+export const quackLikesSchema = z.object({
+  count: z.number(),
+  likedByMe: z.boolean(),
+})
+
 export const liveQuackSchema = z.object({
   id: z.string(),
   deleted: z.literal(false),
@@ -31,6 +37,7 @@ export const liveQuackSchema = z.object({
   // null when the quack is not a poll
   poll: quackPollSchema.nullable(),
   replyCount: z.number(),
+  likes: quackLikesSchema,
 })
 
 // A deleted quack kept for its replies (docs/adr/0001). Its text, mood, poll
@@ -45,6 +52,9 @@ export const deletedQuackSchema = z.object({
   user: z.null(),
   poll: z.null(),
   replyCount: z.number(),
+  // A placeholder keeps no likes (docs/adr/0002): the server sends null, and
+  // a placeholder made on this side after a delete simply has none.
+  likes: z.null().optional(),
 })
 
 export const quackSchema = z.discriminatedUnion("deleted", [liveQuackSchema, deletedQuackSchema])
@@ -58,6 +68,7 @@ export const replySchema = z.object({
   userId: z.string(),
   createdAt: z.coerce.date(),
   user: quackUserSchema,
+  likes: quackLikesSchema,
 })
 
 export const quacksSchema = z.array(quackSchema)
