@@ -4,6 +4,7 @@ import type { QuackDeleteAs } from "@/features/quack/api/deleteAs"
 import type { Reply } from "@/features/quack/api/quackSchemas"
 import { AuthorAvatar } from "@/features/quack/components/AuthorAvatar"
 import { QuackDeleteButton } from "@/features/quack/components/QuackDeleteButton"
+import { QuackLikeButton } from "@/features/quack/components/QuackLikeButton"
 import { UsersName } from "@/features/quack/components/UsersName"
 import { UsersUserName } from "@/features/quack/components/UsersUserName"
 
@@ -46,6 +47,11 @@ export function QuackReplyItem({ reply, deleteAs }: QuackReplyItemProps) {
           ) : null}
         </div>
         <p className="text-sm break-words whitespace-pre-line">{reply.text}</p>
+        <QuackLikeButton
+          quackId={reply.id}
+          parentId={reply.parentId}
+          likes={reply.likes}
+        />
       </div>
     </li>
   )

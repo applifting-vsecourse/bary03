@@ -28,6 +28,14 @@ class PollOptionResponseDto {
   votes!: number;
 }
 
+export class LikesResponseDto {
+  @ApiProperty({ description: 'How many people liked it' })
+  count!: number;
+
+  @ApiProperty({ description: 'Whether the signed-in user liked it' })
+  likedByMe!: boolean;
+}
+
 export class PollResponseDto {
   @ApiProperty({
     type: [PollOptionResponseDto],
@@ -95,6 +103,13 @@ export class QuackResponseDto {
   @ApiProperty({ description: 'How many replies the quack has' })
   replyCount!: number;
 
+  @ApiProperty({
+    type: LikesResponseDto,
+    nullable: true,
+    description: 'null when deleted: a placeholder keeps no likes',
+  })
+  likes!: LikesResponseDto | null;
+
   static fromDomain(quack: Quack): QuackResponseDto {
     // A placeholder (docs/adr/0001) is built from the fields it may show
     // only, so nothing of the deleted quack can slip through.
@@ -109,6 +124,7 @@ export class QuackResponseDto {
         user: null,
         poll: null,
         replyCount: quack.replyCount,
+        likes: null,
       };
     }
     if (!quack.user || quack.text === null) {
@@ -130,6 +146,7 @@ export class QuackResponseDto {
       },
       poll: quack.poll,
       replyCount: quack.replyCount,
+      likes: { count: quack.likes.count, likedByMe: quack.likes.likedByMe },
     };
   }
 }
@@ -153,6 +170,9 @@ export class ReplyResponseDto {
   @ApiProperty({ type: QuackUserDto })
   user!: QuackUserDto;
 
+  @ApiProperty({ type: LikesResponseDto })
+  likes!: LikesResponseDto;
+
   static fromDomain(reply: Reply): ReplyResponseDto {
     return {
       id: reply.id,
@@ -165,6 +185,7 @@ export class ReplyResponseDto {
         name: reply.user.name,
         username: reply.user.username,
       },
+      likes: { count: reply.likes.count, likedByMe: reply.likes.likedByMe },
     };
   }
 }

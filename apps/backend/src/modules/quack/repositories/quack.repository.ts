@@ -8,6 +8,7 @@ import {
 import {
   Quack,
   QuackAuthor,
+  QuackLikes,
   QuackMood,
   QuackPoll,
   Reply,
@@ -33,10 +34,35 @@ const consistentRead = {
   isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
 };
 
-// Counted from the reply rows in the same statement, like the poll counts.
-const replyCountInclude = {
-  _count: { select: { replies: true } },
-} as const;
+// The like count comes from the like rows in the same statement as the quack,
+// and `likes` is only the viewer's own like, if any (docs/adr/0002). Without a
+// viewer, nobody's like is loaded.
+const likesInclude = (viewerId: string | undefined) =>
+  ({
+    _count: { select: { likes: true } },
+    likes: {
+      where: { userId: viewerId ?? { in: [] } },
+      select: { userId: true },
+    },
+  }) as const;
+
+// Reply and like counts, from their rows in the same statement as the poll
+// counts. Both in one `_count`: spreading two includes would drop one.
+const countsAndLikesInclude = (viewerId: string | undefined) =>
+  ({
+    _count: { select: { replies: true, likes: true } },
+    likes: likesInclude(viewerId).likes,
+  }) as const;
+
+const mapPrismaLikesToDomain = (
+  count: number | undefined,
+  viewerLikes: { userId: string }[] | undefined,
+): QuackLikes => ({
+  count: count ?? 0,
+  likedByMe: (viewerLikes?.length ?? 0) > 0,
+});
+
+const NO_LIKES: QuackLikes = { count: 0, likedByMe: false };
 
 type PrismaPollOptionWithCount = PrismaPollOption & {
   _count: { votes: number };
@@ -71,7 +97,8 @@ const mapPrismaQuackToDomain = (
     user?: PrismaUser | null;
     pollOptions?: PrismaPollOptionWithCount[];
     pollVotes?: { optionId: string }[];
-    _count?: { replies: number };
+    likes?: { userId: string }[];
+    _count?: { replies?: number; likes?: number };
   },
 ): Quack => ({
   id: quack.id,
@@ -83,11 +110,16 @@ const mapPrismaQuackToDomain = (
   user: quack.user ? mapPrismaUserToAuthor(quack.user) : undefined,
   poll: mapPrismaPollToDomain(quack.pollOptions, quack.pollVotes),
   replyCount: quack._count?.replies ?? 0,
+  likes: mapPrismaLikesToDomain(quack._count?.likes, quack.likes),
 });
 
 /** The rows a reply is made of; the schema's CHECKs guarantee text and author. */
 const mapPrismaReplyToDomain = (
-  reply: PrismaQuack & { user: PrismaUser | null },
+  reply: PrismaQuack & {
+    user: PrismaUser | null;
+    likes?: { userId: string }[];
+    _count?: { likes?: number };
+  },
 ): Reply => {
   if (
     reply.parentId === null ||
@@ -104,6 +136,9 @@ const mapPrismaReplyToDomain = (
     userId: reply.userId,
     createdAt: reply.createdAt,
     user: mapPrismaUserToAuthor(reply.user),
+    likes: reply._count
+      ? mapPrismaLikesToDomain(reply._count.likes, reply.likes)
+      : NO_LIKES,
   };
 };
 
@@ -131,6 +166,19 @@ const lockForUpdate = async (
   const [row] = await tx.$queryRaw<{ userId: string | null }[]>`
     SELECT "userId" FROM "quack" WHERE "id" = ${quackId} FOR UPDATE`;
   return row;
+};
+
+/**
+ * Locks the quack's row against a delete or wipe until the transaction ends.
+ * False when it doesn't exist or is a placeholder, which keeps no likes.
+ */
+const lockLikeable = async (
+  tx: Prisma.TransactionClient,
+  quackId: string,
+): Promise<boolean> => {
+  const [row] = await tx.$queryRaw<{ userId: string | null }[]>`
+    SELECT "userId" FROM "quack" WHERE "id" = ${quackId} FOR SHARE`;
+  return row !== undefined && row.userId !== null;
 };
 
 // Prisma passes `contains` straight into ILIKE without escaping, so % and _
@@ -178,7 +226,7 @@ export class QuackRepository {
           include: {
             user: true,
             ...pollInclude(viewerId),
-            ...replyCountInclude,
+            ...countsAndLikesInclude(viewerId),
           },
           orderBy: { createdAt: 'desc' },
         }),
@@ -213,7 +261,7 @@ export class QuackRepository {
       include: {
         user: true,
         ...pollInclude(createQuackData.userId),
-        ...replyCountInclude,
+        ...countsAndLikesInclude(createQuackData.userId),
       },
     });
     return mapPrismaQuackToDomain(quack);
@@ -222,18 +270,26 @@ export class QuackRepository {
   /**
    * The quack's replies, oldest first (id breaks a tie, so the order never
    * shuffles between reads), or null when the quack doesn't exist. A reply
-   * has no replies, so asking for a reply's gives an empty list.
+   * has no replies, so asking for a reply's gives an empty list. Each reply's
+   * likes say whether `viewerId` liked it.
    */
-  async getReplies(quackId: string): Promise<Reply[] | null> {
-    const quack = await this.prisma.quack.findUnique({
-      where: { id: quackId },
-      select: {
-        replies: {
-          include: { user: true },
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        },
-      },
-    });
+  async getReplies(
+    quackId: string,
+    viewerId?: string,
+  ): Promise<Reply[] | null> {
+    const quack = await this.prisma.$transaction(
+      (tx) =>
+        tx.quack.findUnique({
+          where: { id: quackId },
+          select: {
+            replies: {
+              include: { user: true, ...likesInclude(viewerId) },
+              orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+            },
+          },
+        }),
+      consistentRead,
+    );
     return quack ? quack.replies.map(mapPrismaReplyToDomain) : null;
   }
 
@@ -263,7 +319,7 @@ export class QuackRepository {
           user: { connect: { id: replyData.userId } },
           parent: { connect: { id: replyData.parentId } },
         },
-        include: { user: true },
+        include: { user: true, ...likesInclude(replyData.userId) },
       });
       return { status: 'created', reply: mapPrismaReplyToDomain(reply) };
     });
@@ -332,6 +388,9 @@ export class QuackRepository {
       }
       // Votes go with their answers (cascade).
       await tx.pollOption.deleteMany({ where: { quackId } });
+      // The row stays, so the cascade doesn't fire: a placeholder keeps no
+      // likes (docs/adr/0002).
+      await tx.quackLike.deleteMany({ where: { quackId } });
       // One statement on purpose: the quack_placeholder_shape CHECK sees each
       // statement's row, and Prisma runs a relation disconnect as a second
       // UPDATE, so text gone but author still set would be refused.
@@ -402,19 +461,30 @@ export class QuackRepository {
 
   /**
    * Likes the quack as `userId`; liking it again changes nothing
-   * (docs/adr/0002). Not implemented yet.
+   * (docs/adr/0002). FOR SHARE holds the quack until the like is written, the
+   * same lock posting a reply takes, so a like can't land on a quack while
+   * it is being wiped or deleted.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async likeQuack(quackId: string, userId: string): Promise<LikeResult> {
-    throw new Error('not implemented');
+    return this.prisma.$transaction(async (tx) => {
+      if (!(await lockLikeable(tx, quackId))) return 'not-found';
+      await tx.$executeRaw`
+        INSERT INTO "quack_like" ("quackId", "userId")
+        VALUES (${quackId}, ${userId})
+        ON CONFLICT ("quackId", "userId") DO NOTHING`;
+      return 'done';
+    });
   }
 
   /**
-   * Takes back `userId`'s like; taking back a like never given changes
-   * nothing (docs/adr/0002). Not implemented yet.
+   * Takes back `userId`'s like, never anyone else's; taking back a like
+   * never given changes nothing (docs/adr/0002).
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async unlikeQuack(quackId: string, userId: string): Promise<LikeResult> {
-    throw new Error('not implemented');
+    return this.prisma.$transaction(async (tx) => {
+      if (!(await lockLikeable(tx, quackId))) return 'not-found';
+      await tx.quackLike.deleteMany({ where: { quackId, userId } });
+      return 'done';
+    });
   }
 }

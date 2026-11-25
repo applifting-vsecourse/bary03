@@ -142,10 +142,11 @@ export class QuacksController {
   @ApiResponse({ status: 401, description: 'Not signed in' })
   @ApiResponse({ status: 404, description: 'No such quack' })
   async listReplies(
+    @User() user: Identity,
     @Param('quackId') quackId: string,
   ): Promise<ReplyResponseDto[]> {
     try {
-      const replies = await this.quacksService.getReplies(quackId);
+      const replies = await this.quacksService.getReplies(quackId, user);
       return replies.map(ReplyResponseDto.fromDomain);
     } catch (error) {
       if (error instanceof QuackNotFoundError) {
@@ -241,7 +242,7 @@ export class QuacksController {
   @ApiOperation({
     summary: 'Like a quack or a reply',
     description:
-      'Likes it as the signed-in user; liking it again changes nothing. Not implemented yet.',
+      'Likes it as the signed-in user; liking it again changes nothing.',
   })
   @ApiResponse({ status: 204, description: 'Liked' })
   @ApiResponse({ status: 401, description: 'Not signed in' })
@@ -249,9 +250,18 @@ export class QuacksController {
     status: 404,
     description: 'No such quack, or it was deleted',
   })
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  like(@User() user: Identity, @Param('quackId') quackId: string): void {
-    throw new Error('not implemented');
+  async like(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+  ): Promise<void> {
+    try {
+      await this.quacksService.likeQuack(user, quackId);
+    } catch (error) {
+      if (error instanceof QuackNotFoundError) {
+        throw new NotFoundException('This quack does not exist');
+      }
+      throw error;
+    }
   }
 
   @Delete(':quackId/like')
@@ -259,7 +269,7 @@ export class QuacksController {
   @ApiOperation({
     summary: 'Take back your like',
     description:
-      "Removes the signed-in user's like, never anyone else's; taking back a like you never gave changes nothing. Not implemented yet.",
+      "Removes the signed-in user's like, never anyone else's; taking back a like you never gave changes nothing.",
   })
   @ApiResponse({ status: 204, description: 'Not liked by you any more' })
   @ApiResponse({ status: 401, description: 'Not signed in' })
@@ -267,8 +277,17 @@ export class QuacksController {
     status: 404,
     description: 'No such quack, or it was deleted',
   })
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  unlike(@User() user: Identity, @Param('quackId') quackId: string): void {
-    throw new Error('not implemented');
+  async unlike(
+    @User() user: Identity,
+    @Param('quackId') quackId: string,
+  ): Promise<void> {
+    try {
+      await this.quacksService.unlikeQuack(user, quackId);
+    } catch (error) {
+      if (error instanceof QuackNotFoundError) {
+        throw new NotFoundException('This quack does not exist');
+      }
+      throw error;
+    }
   }
 }

@@ -53,6 +53,9 @@ model Quack {
   pollOptions PollOption[]
   pollVotes   PollVote[]
 
+  // Who liked it; counts are computed from these rows (docs/adr/0002).
+  likes QuackLike[]
+
   @@index([userId])
   // the feed (parentId null, newest first) and a quack's replies (oldest first)
   @@index([parentId, createdAt])
@@ -98,6 +101,21 @@ model PollVote {
   @@index([optionId])
   @@index([userId])
   @@map("poll_vote")
+}
+
+// One row per person per liked quack: the primary key is the
+// once-per-user guarantee. Counts are always computed, never stored
+// (docs/adr/0002).
+model QuackLike {
+  quack     Quack    @relation(fields: [quackId], references: [id], onDelete: Cascade)
+  quackId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@id([quackId, userId])
+  @@index([userId])
+  @@map("quack_like")
 }
 
 model Session {
@@ -160,6 +178,7 @@ model User {
   accounts      Account[]
   quacks        Quack[]
   pollVotes     PollVote[]
+  quackLikes    QuackLike[]
   role          UserRole   @default(user)
 
   username        String?    @db.VarChar(50)
