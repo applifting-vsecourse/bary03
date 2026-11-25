@@ -50,3 +50,135 @@ jobs:
 
       - name: Build frontend
         run: pnpm frontend build
+
+  # Backend over real HTTP (supertest) against a real Postgres. Locally the same
+  # tests use the quacker_test database in the Docker Postgres from `pnpm dev`.
+  test-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quacker
+          POSTGRES_PASSWORD: quacker
+          POSTGRES_DB: quacker_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U quacker -d quacker_test"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://quacker:quacker@localhost:5433/quacker_test
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm backend prisma:generate
+
+      # The test setup applies our Prisma migrations before the first test.
+      - name: Integration tests
+        run: pnpm backend test:int
+
+  # The whole app in a browser: Postgres, the built backend and the built
+  # frontend, driven by the Playwright tests in apps/frontend/e2e.
+  test-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        # Same credentials and port as apps/backend/docker-compose.yml, so the
+        # .env files created from the examples work unchanged.
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: quacker
+          POSTGRES_PASSWORD: quacker
+          POSTGRES_DB: quacker
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U quacker -d quacker"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create env files
+        run: pnpm env:check
+
+      - name: Install Playwright browser
+        run: pnpm --filter frontend exec playwright install --with-deps chromium
+
+      - name: Migrate and seed the database
+        run: |
+          pnpm backend migrate
+          pnpm backend seed
+
+      - name: Build backend and frontend
+        run: |
+          pnpm backend build
+          pnpm frontend build
+
+      - name: Start backend and frontend
+        run: |
+          (cd apps/backend && node --env-file=.env dist/main.js > "$RUNNER_TEMP/backend.log" 2>&1 &)
+          (cd apps/frontend && pnpm exec vite preview --port 3050 --strictPort > "$RUNNER_TEMP/frontend.log" 2>&1 &)
+          for url in http://localhost:4050/api/docs http://localhost:3050; do
+            echo "Waiting for $url"
+            timeout 60 bash -c "until curl -sf -o /dev/null $url; do sleep 1; done"
+          done
+
+      - name: End-to-end tests
+        run: pnpm frontend e2e
+
+      - name: Server logs
+        if: failure()
+        run: |
+          echo "::group::backend"; cat "$RUNNER_TEMP/backend.log" || true; echo "::endgroup::"
+          echo "::group::frontend"; cat "$RUNNER_TEMP/frontend.log" || true; echo "::endgroup::"
+
+      - name: Upload Playwright results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: apps/frontend/test-results
+          if-no-files-found: ignore
+
+  # Flags pull requests that remove or rewrite lines in test files. Adding tests
+  # is fine. Deliberately independent: no other job needs it, and it is not a
+  # required check in branch protection, so it shows red on the PR without
+  # blocking the merge (deploy.yml runs on push to main and never waits on it).
+  test-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check test files only gained lines
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: scripts/check-test-changes.sh "origin/$BASE_REF"
