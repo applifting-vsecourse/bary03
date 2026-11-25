@@ -6,7 +6,7 @@ import {
 } from '@test/integration/test-app';
 import * as request from 'supertest';
 
-describe('GET /api/quacks', () => {
+describe('GET /api/quacks (feed)', () => {
   let app: INestApplication;
 
   beforeAll(async () => {
